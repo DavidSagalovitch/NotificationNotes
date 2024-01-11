@@ -201,6 +201,7 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 									}
 									viewModel.removeNote(index)
 								}
+								cancelNotification(context, viewState.noteID.get(index))
 
 							},
 
@@ -230,6 +231,12 @@ fun sendNotification(context: Context,notificationId: Int, title: String, text: 
 
 	// Send the notification
 	notificationManager.notify(notificationId, builder.build())
+}
+
+fun cancelNotification(context: Context, notificationId: Int){
+	// Get the notification manager
+	val notificationManager = NotificationManagerCompat.from(context)
+	notificationManager.cancel(notificationId)
 }
 
 private fun createNotificationChannel(context: Context) {
