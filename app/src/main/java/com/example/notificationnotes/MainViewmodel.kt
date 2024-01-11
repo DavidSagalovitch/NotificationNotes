@@ -22,7 +22,7 @@ private const val DEFAULT_TIMESTAMP = 0
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     data class ViewState(
-        val numOfNotes: Int = 1,
+        val noteID: List<Int> = listOf<Int>(0),
         val note: List<String> = listOf<String>("Enter Reminder")
     )
 
@@ -40,7 +40,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             notificationNotesParamsDataStore.data.collectLatest { startupParams: NotificationNotes.notificationNote ->
                 // Update the view state when data changes
                 _viewState.value = _viewState.value.copy(
-                    numOfNotes = startupParams.numOfNotes,
+                    noteID= startupParams.noteIDList.toList(),
                     note = startupParams.noteList.toList()
                 )
             }
@@ -70,7 +70,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     removeAt(index)
                 }
                 currentParams.toBuilder()
-                    .setNumOfNotes(currentParams.numOfNotes-1)
+                    .setNoteID(0,0)
                     .clearNote()
                     .addAllNote(updatedNoteList)
                     .build()
@@ -83,7 +83,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             notificationNotesParamsDataStore.updateData { currentParams ->
                 currentParams.toBuilder()
-                    .setNumOfNotes(currentParams.numOfNotes+1)
+                    .addNoteID(currentParams.noteIDList.lastIndex+1)
                     .addNote("Enter Reminder")
                     .build()
             }

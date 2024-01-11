@@ -3,6 +3,6 @@ syntax = "proto3";
 package com.example.notificationnotes;
 
 message notificationNote{
-  int32 numOfNotes = 1;
+  repeated int32 noteID = 1;
   repeated string note = 2;
 }

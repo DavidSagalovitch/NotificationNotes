@@ -23,8 +23,14 @@ class ProtoDataStoreApplication : Application() {
 			val beforeUpdate = notificationNotesParamsDataStore.data.first()
 			notificationNotesParamsDataStore.updateData { currentParams ->
 				val currentNoteList: List<String> = currentParams.noteList
+				val currentNoteIDs: List<Int> = currentParams.noteIDList
 				currentParams.toBuilder()
-					.setNumOfNotes(if (currentParams.numOfNotes == 0) 1 else currentParams.numOfNotes)
+					.clearNoteID()
+					.addAllNoteID( if (currentNoteIDs.isEmpty()) {
+						listOf(0)
+					} else {
+						currentNoteIDs
+					})
 					.clearNote()
 					.addAllNote( if (currentNoteList.isEmpty()) {
 						listOf("Enter Reminder")

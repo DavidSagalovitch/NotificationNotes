@@ -188,7 +188,7 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 									this[index] = editText
 								}
 								viewModel.update(index, editText)
-								sendNotification(context, index, "", editText)
+								sendNotification(context, viewState.noteID.get(index), "", editText)
 							},
 						) {
 							Text("+")
