@@ -188,7 +188,7 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 									this[index] = editText
 								}
 								viewModel.update(index, editText)
-								sendNotification(context, viewState.noteID.get(index), "", editText)
+								addNotification(context, viewState.noteID.get(index), "", editText)
 							},
 						) {
 							Text("+")
@@ -201,7 +201,7 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 									}
 									viewModel.removeNote(index)
 								}
-								cancelNotification(context, viewState.noteID.get(index))
+								removeNotification(context, viewState.noteID.get(index))
 
 							},
 
@@ -216,7 +216,7 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 }
 
 
-fun sendNotification(context: Context,notificationId: Int, title: String, text: String) {
+fun addNotification(context: Context,notificationId: Int, title: String, text: String) {
 	val channelId = "my_notification_channel" // Use the same channel ID you used when creating the channel
 
 	// Create a notification builder
@@ -225,6 +225,8 @@ fun sendNotification(context: Context,notificationId: Int, title: String, text: 
 		.setContentTitle(title) // Set the title of the notification
 		.setContentText(text) // Set the content text of the notification
 		.setPriority(NotificationCompat.PRIORITY_DEFAULT) // Set the priority of the notification
+		.setOngoing(true)
+		.setAutoCancel(false)
 
 	// Get the notification manager
 	val notificationManager = NotificationManagerCompat.from(context)
@@ -233,7 +235,7 @@ fun sendNotification(context: Context,notificationId: Int, title: String, text: 
 	notificationManager.notify(notificationId, builder.build())
 }
 
-fun cancelNotification(context: Context, notificationId: Int){
+fun removeNotification(context: Context, notificationId: Int){
 	// Get the notification manager
 	val notificationManager = NotificationManagerCompat.from(context)
 	notificationManager.cancel(notificationId)
