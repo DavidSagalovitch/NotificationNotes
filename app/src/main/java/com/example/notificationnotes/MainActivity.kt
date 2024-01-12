@@ -131,7 +131,6 @@ fun loginScreen(onLoginSuccess: () -> Unit) {
 fun mainScreen(context: Context, viewModel: MainViewModel,
                onBackPress:()->Unit) {
 	val viewState: MainViewModel.ViewState by viewModel.viewState.collectAsStateWithLifecycle()
-	var text by remember { mutableStateOf("Enter New Notification") }
 	var notificationTexts by remember { mutableStateOf(viewState.note) }
 	Scaffold(
 		bottomBar = {
@@ -169,13 +168,10 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 					Row(){
 						// Initial text box
 						// Display all notification text fields
-						var editText by rememberSaveable {mutableStateOf(notificationTexts[index]) }
-						text = editText
 						// Editable text box
 						TextField(
-							value = editText,
+							value = notificationTexts[index],
 							onValueChange = {newText ->
-								editText = newText
 								notificationTexts = notificationTexts.toMutableList().apply {
 									this[index] = newText
 								} },
@@ -184,24 +180,19 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 
 						Button(
 							onClick = {
-								notificationTexts = notificationTexts.toMutableList().apply {
-									this[index] = editText
-								}
-								viewModel.update(index, editText)
-								addNotification(context, viewState.noteID.get(index), "", editText)
+								viewModel.update(index, notificationTexts[index])
+								addNotification(context, viewState.noteID.get(index), "", notificationTexts[index])
 							},
 						) {
 							Text("+")
 						}
 						Button(
 							onClick = {
-								if(notificationTexts.size > 1) {
-									notificationTexts = notificationTexts.toMutableList().apply{
-										removeAt(index)
-									}
-									viewModel.removeNote(index)
-								}
 								removeNotification(context, viewState.noteID.get(index))
+								notificationTexts = notificationTexts.toMutableList().apply{
+									removeAt(index)
+								}
+								viewModel.removeNote(index)
 
 							},
 

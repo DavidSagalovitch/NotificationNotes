@@ -58,8 +58,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
 
-
-
     fun removeNote(index: Int){
 
         viewModelScope.launch(Dispatchers.IO) {
@@ -69,8 +67,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 updatedNoteList = updatedNoteList.toMutableList().apply{
                     removeAt(index)
                 }
+                var updatedNoteID: List<Int> = currentParams.noteIDList
+                updatedNoteID = updatedNoteID.toMutableList().apply {
+                    removeAt(index)
+                }
                 currentParams.toBuilder()
-                    .setNoteID(0,0)
+                    .clearNoteID()
+                    .addAllNoteID(updatedNoteID)
                     .clearNote()
                     .addAllNote(updatedNoteList)
                     .build()
