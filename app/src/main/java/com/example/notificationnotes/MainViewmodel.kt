@@ -23,7 +23,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     data class ViewState(
         val noteID: List<Int> = listOf<Int>(0),
-        val note: List<String> = listOf<String>("Enter Reminder")
+        val note: List<String> = listOf<String>(" ")
     )
 
     private val _viewState = MutableStateFlow(ViewState())

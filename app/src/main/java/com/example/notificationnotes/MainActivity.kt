@@ -135,6 +135,7 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
                onBackPress:()->Unit) {
 	val viewState: MainViewModel.ViewState by viewModel.viewState.collectAsStateWithLifecycle()
 	var notificationTexts by remember { mutableStateOf(viewState.note) }
+	var notifcationNumber = 0
 	Scaffold(
 		bottomBar = {
 			BottomAppBar(
@@ -145,7 +146,7 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 					Text("<")
 				}
 				Button(onClick ={viewModel.addEntry()
-					notificationTexts = notificationTexts + "Enter New Notification"
+					notificationTexts = notificationTexts + " "
 				}){
 					Text("Add New Notification")
 
@@ -179,7 +180,9 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 								notificationTexts = notificationTexts.toMutableList().apply {
 									this[index] = newText
 								} },
-							label = { Text("Notification") },
+							label = {
+								notifcationNumber = index+1
+								Text("Notification $notifcationNumber") },
 							keyboardOptions = KeyboardOptions.Default.copy(
 								imeAction = ImeAction.Done
 							),

@@ -33,7 +33,7 @@ class ProtoDataStoreApplication : Application() {
 					})
 					.clearNote()
 					.addAllNote( if (currentNoteList.isEmpty()) {
-						listOf("Enter Reminder")
+						listOf(" ")
 					} else {
 						currentNoteList
 					})
