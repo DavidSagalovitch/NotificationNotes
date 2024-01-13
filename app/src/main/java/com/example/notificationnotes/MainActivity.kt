@@ -14,8 +14,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +37,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -165,17 +168,24 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 			)
 			LazyColumn() {
 				items(notificationTexts.size) { index ->
-					Row(){
-						// Initial text box
-						// Display all notification text fields
-						// Editable text box
+					Row(
+						modifier = Modifier
+							.fillMaxWidth()
+							.padding(8.dp),
+						horizontalArrangement = Arrangement.SpaceBetween){
 						TextField(
 							value = notificationTexts[index],
 							onValueChange = {newText ->
 								notificationTexts = notificationTexts.toMutableList().apply {
 									this[index] = newText
 								} },
-							label = { Text("Notification") }
+							label = { Text("Notification") },
+							keyboardOptions = KeyboardOptions.Default.copy(
+								imeAction = ImeAction.Done
+							),
+							modifier = Modifier.weight(1f)
+
+
 						)
 
 						Button(
@@ -230,6 +240,18 @@ fun removeNotification(context: Context, notificationId: Int){
 	// Get the notification manager
 	val notificationManager = NotificationManagerCompat.from(context)
 	notificationManager.cancel(notificationId)
+}
+
+fun checkNotifications(context: Context, notificationId: Int, note: String){
+	val notificationManager = NotificationManagerCompat.from(context)
+
+	val activeNotifications = notificationManager.activeNotifications
+
+	for (notification in activeNotifications) {
+		if (notification.id == notificationId) {
+			addNotification(context, notificationId, "Notification", note)
+		}
+	}
 }
 
 private fun createNotificationChannel(context: Context) {
