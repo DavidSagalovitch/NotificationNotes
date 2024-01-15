@@ -27,13 +27,13 @@ class ProtoDataStoreApplication : Application() {
 				currentParams.toBuilder()
 					.clearNoteID()
 					.addAllNoteID( if (currentNoteIDs.isEmpty()) {
-						listOf(0)
+						listOf<Int>()
 					} else {
 						currentNoteIDs
 					})
 					.clearNote()
 					.addAllNote( if (currentNoteList.isEmpty()) {
-						listOf(" ")
+						listOf<String>()
 					} else {
 						currentNoteList
 					})

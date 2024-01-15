@@ -1,6 +1,7 @@
 package com.example.notificationnotes
 
 import android.app.Application
+import android.content.Context
 import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.lifecycle.AndroidViewModel
@@ -17,13 +18,12 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
-private const val DEFAULT_TIMESTAMP = 0
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     data class ViewState(
-        val noteID: List<Int> = listOf<Int>(0),
-        val note: List<String> = listOf<String>(" ")
+        val noteID: List<Int> = listOf<Int>(),
+        val note: List<String> = listOf<String>()
     )
 
     private val _viewState = MutableStateFlow(ViewState())
@@ -48,7 +48,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun update(index: Int, note: String) {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(Dispatchers.Unconfined) {
             notificationNotesParamsDataStore.updateData { currentParams ->
                 currentParams.toBuilder()
                     .setNote(index, note)
@@ -83,11 +83,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun addEntry(){
         viewModelScope.launch(Dispatchers.IO) {
-
             notificationNotesParamsDataStore.updateData { currentParams ->
                 currentParams.toBuilder()
-                    .addNoteID(currentParams.noteIDList.lastIndex+1)
-                    .addNote("Enter Reminder")
+                    .addNoteID(if (currentParams.noteIDList.isEmpty()) 1
+                    else currentParams.noteIDList.get(currentParams.noteIDList.lastIndex)+1)
+                    .addNote(" ")
                     .build()
             }
 

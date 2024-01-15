@@ -4,9 +4,12 @@ import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+import android.provider.Settings.Global
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -54,19 +57,36 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.notificationnotes.notificationNote
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-
-
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 
 const val REQUEST_NOTIFICATION_PERMISSION = 123 // You can use any unique value
+val CHANNEL_ID = "my_notification_channel"
+
+lateinit var globalappContext: Context
+var noteIDList: MutableList<Int> = mutableListOf()
+var noteList:MutableList<String> = mutableListOf()
+var removedBySwipe = true
 
 class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
-		createNotificationChannel(this)
+		val appContext: Context by lazy {
+			this
+		}
+		setAppContext(appContext)
+		createNotificationChannel(appContext)
+
+		//	lifecycleScope.launch {
+	//		checkNotificationVisibility(appContext)
+	//	}
 		if (ActivityCompat.checkSelfPermission(
-				this,
+				appContext,
 				Manifest.permission.POST_NOTIFICATIONS
 			) != PackageManager.PERMISSION_GRANTED
 		) {
@@ -76,6 +96,11 @@ class MainActivity : ComponentActivity() {
 				arrayOf(Manifest.permission.POST_NOTIFICATIONS),
 				REQUEST_NOTIFICATION_PERMISSION)
 		}
+
+		if (!isNotificationListenerServiceEnabled(this)) {
+			openNotificationAccessSettings(this)
+		}
+
 		setContent {
 			NotificationNotesTheme {
 				// A surface container using the 'background' color from the theme
@@ -83,7 +108,7 @@ class MainActivity : ComponentActivity() {
 					modifier = Modifier.fillMaxSize(),
 					color = MaterialTheme.colorScheme.background
 				) {
-					stateMachine(this)
+					stateMachine(appContext)
 				}
 			}
 		}
@@ -194,18 +219,22 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 						Button(
 							onClick = {
 								viewModel.update(index, notificationTexts[index])
+								setNotesInfo(viewState.noteID, viewState.note)
 								addNotification(context, viewState.noteID.get(index), "", notificationTexts[index])
-							},
+
+							}
 						) {
 							Text("+")
 						}
 						Button(
 							onClick = {
+								removedBySwipe = false
 								removeNotification(context, viewState.noteID.get(index))
 								notificationTexts = notificationTexts.toMutableList().apply{
 									removeAt(index)
 								}
 								viewModel.removeNote(index)
+								setNotesInfo(viewState.noteID, viewState.note)
 
 							},
 
@@ -221,10 +250,9 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 
 
 fun addNotification(context: Context,notificationId: Int, title: String, text: String) {
-	val channelId = "my_notification_channel" // Use the same channel ID you used when creating the channel
 
 	// Create a notification builder
-	val builder = NotificationCompat.Builder(context, channelId)
+	val builder = NotificationCompat.Builder(context, CHANNEL_ID)
 		.setSmallIcon(R.drawable.ic_launcher_foreground) // Set the small icon for the notification
 		.setContentTitle(title) // Set the title of the notification
 		.setContentText(text) // Set the content text of the notification
@@ -244,22 +272,18 @@ fun removeNotification(context: Context, notificationId: Int){
 	val notificationManager = NotificationManagerCompat.from(context)
 	notificationManager.cancel(notificationId)
 }
-
-fun checkNotifications(context: Context, notificationId: Int, note: String){
+fun checkNotifications(context: Context){
 	val notificationManager = NotificationManagerCompat.from(context)
 
 	val activeNotifications = notificationManager.activeNotifications
-
-	for (notification in activeNotifications) {
-		if (notification.id == notificationId) {
-			addNotification(context, notificationId, "Notification", note)
-		}
+	val activeNotificationIDs = activeNotifications.map{it.id}
+	val missingNotifications = getNotesIDinfo().filter { !activeNotificationIDs.contains(it) }
+	for (notificationID in missingNotifications) {
+		addNotification(context, notificationID, "Notification", "note")
 	}
 }
 
 private fun createNotificationChannel(context: Context) {
-
-    val CHANNEL_ID = "my_notification_channel"
 
 	if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
 		// Create the NotificationChannel.
@@ -273,4 +297,49 @@ private fun createNotificationChannel(context: Context) {
 		val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 		notificationManager.createNotificationChannel(mChannel)
 	}
+}
+
+fun setAppContext(context: Context){
+	globalappContext = context
+}
+
+fun getAppContext(): Context{
+	return globalappContext
+}
+
+fun setNotesInfo(currentID: List<Int>, currentNotes: List<String>){
+	noteIDList.addAll(currentID)
+	noteList.addAll(currentNotes)
+}
+
+fun getNotesIDinfo(): List<Int>{
+	return noteIDList
+}
+
+fun getNoteInfo(): List<String>{
+	return noteList
+}
+
+fun CoroutineScope.checkNotificationVisibility(context: Context) {
+	launch {
+		while (true) {
+			checkNotifications(context)
+			delay(1000) // Adjust the delay based on your needs
+		}
+	}
+}
+
+fun isNotificationListenerServiceEnabled(context: Context): Boolean {
+	val contentResolver = context.contentResolver
+	val enabledNotificationListeners = Settings.Secure.getString(
+		contentResolver,
+		"enabled_notification_listeners"
+	)
+	val packageName = context.packageName
+	return enabledNotificationListeners?.contains(packageName) == true
+}
+
+fun openNotificationAccessSettings(context: Context) {
+	val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+	context.startActivity(intent)
 }
