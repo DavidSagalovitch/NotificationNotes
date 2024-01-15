@@ -255,6 +255,7 @@ fun addNotification(context: Context,notificationId: Int, title: String, text: S
 		.setSmallIcon(R.drawable.ic_launcher_foreground) // Set the small icon for the notification
 		.setContentTitle(title) // Set the title of the notification
 		.setContentText(text) // Set the content text of the notification
+		.setStyle(NotificationCompat.BigTextStyle().bigText(text))
 		.setPriority(NotificationCompat.PRIORITY_DEFAULT) // Set the priority of the notification
 
 	// Get the notification manager
