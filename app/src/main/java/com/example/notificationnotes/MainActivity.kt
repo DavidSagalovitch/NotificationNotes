@@ -13,6 +13,7 @@ import android.provider.Settings.Global
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -74,6 +75,7 @@ var noteList:MutableList<String> = mutableListOf()
 var removedBySwipe = true
 
 class MainActivity : ComponentActivity() {
+	@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 		val appContext: Context by lazy {
@@ -82,9 +84,6 @@ class MainActivity : ComponentActivity() {
 		setAppContext(appContext)
 		createNotificationChannel(appContext)
 
-		//	lifecycleScope.launch {
-	//		checkNotificationVisibility(appContext)
-	//	}
 		if (ActivityCompat.checkSelfPermission(
 				appContext,
 				Manifest.permission.POST_NOTIFICATIONS
@@ -219,7 +218,7 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 						Button(
 							onClick = {
 								viewModel.update(index, notificationTexts[index])
-								setNotesInfo(viewState.noteID, viewState.note)
+								setNotesInfo(viewState.noteID, notificationTexts)
 								addNotification(context, viewState.noteID.get(index), "", notificationTexts[index])
 
 							}
@@ -234,7 +233,7 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 									removeAt(index)
 								}
 								viewModel.removeNote(index)
-								setNotesInfo(viewState.noteID, viewState.note)
+								setNotesInfo(viewState.noteID, notificationTexts)
 
 							},
 
@@ -257,8 +256,6 @@ fun addNotification(context: Context,notificationId: Int, title: String, text: S
 		.setContentTitle(title) // Set the title of the notification
 		.setContentText(text) // Set the content text of the notification
 		.setPriority(NotificationCompat.PRIORITY_DEFAULT) // Set the priority of the notification
-		.setOngoing(true)
-		.setAutoCancel(false)
 
 	// Get the notification manager
 	val notificationManager = NotificationManagerCompat.from(context)
@@ -272,16 +269,6 @@ fun removeNotification(context: Context, notificationId: Int){
 	val notificationManager = NotificationManagerCompat.from(context)
 	notificationManager.cancel(notificationId)
 }
-fun checkNotifications(context: Context){
-	val notificationManager = NotificationManagerCompat.from(context)
-
-	val activeNotifications = notificationManager.activeNotifications
-	val activeNotificationIDs = activeNotifications.map{it.id}
-	val missingNotifications = getNotesIDinfo().filter { !activeNotificationIDs.contains(it) }
-	for (notificationID in missingNotifications) {
-		addNotification(context, notificationID, "Notification", "note")
-	}
-}
 
 private fun createNotificationChannel(context: Context) {
 
@@ -289,7 +276,7 @@ private fun createNotificationChannel(context: Context) {
 		// Create the NotificationChannel.
 		val name = context.getString(R.string.channel_name)
 		val descriptionText = context.getString(R.string.channel_description)
-		val importance = NotificationManager.IMPORTANCE_DEFAULT
+		val importance = NotificationManager.IMPORTANCE_LOW
         val mChannel = NotificationChannel(CHANNEL_ID, name, importance)
 		mChannel.description = descriptionText
 		// Register the channel with the system. You can't change the importance
@@ -320,14 +307,6 @@ fun getNoteInfo(): List<String>{
 	return noteList
 }
 
-fun CoroutineScope.checkNotificationVisibility(context: Context) {
-	launch {
-		while (true) {
-			checkNotifications(context)
-			delay(1000) // Adjust the delay based on your needs
-		}
-	}
-}
 
 fun isNotificationListenerServiceEnabled(context: Context): Boolean {
 	val contentResolver = context.contentResolver
