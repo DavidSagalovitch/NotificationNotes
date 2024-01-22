@@ -15,12 +15,16 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
@@ -142,17 +146,28 @@ fun loginScreen(onLoginSuccess: () -> Unit) {
 		verticalArrangement = Arrangement.Center,
 		horizontalAlignment = Alignment.CenterHorizontally
 
+
 	)
 	{
-		Text(
-			text = "Welcome To Notification Notes",
-			fontSize = 30.sp,
-			textAlign = TextAlign.Center
-		)
-		Row {
+		Box(modifier = Modifier
+			.fillMaxHeight(0.45f)) {
+			Text(
+				text = "Welcome To Notification Notes",
+				fontSize = 30.sp,
+				textAlign = TextAlign.Center
+
+			)
+		}
+		Row(modifier = Modifier.fillMaxWidth(),
+			horizontalArrangement = Arrangement.SpaceBetween
+		) {/* Temporarily commenting out, uncomment when additional functionality is added
 			ThemedButton(onClick = {  },
-				text = "?????")
+				modifier = Modifier
+				.weight(1f),
+				text = "?????")*/
 			ThemedButton(onClick = { onLoginSuccess() },
+				modifier = Modifier
+					.weight(1f).padding(10.dp),
 				text = "Enter")
 		}
 	}
@@ -173,10 +188,15 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 			) {
 				ThemedButton(
 					onClick = { onBackPress() },
+					modifier = Modifier.padding(8.dp),
 					text = "<")
+
+				Spacer(modifier = Modifier.weight(1f))
+
 				ThemedButton(onClick ={viewModel.addEntry()
 					notificationTexts = notificationTexts + " "
 				},
+					modifier = Modifier.padding(8.dp),
 					text = "Add New Notification")
 			}
 		},
@@ -198,9 +218,8 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 				items(notificationTexts.size) { index ->
 					Row(
 						modifier = Modifier
-							.fillMaxWidth()
-							.padding(8.dp),
-						horizontalArrangement = Arrangement.SpaceBetween){
+							.fillMaxWidth() ,
+							horizontalArrangement = Arrangement.SpaceBetween){
 						TextField(
 							value = notificationTexts[index],
 							onValueChange = {newText ->
@@ -213,7 +232,7 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 							keyboardOptions = KeyboardOptions.Default.copy(
 								imeAction = ImeAction.Done
 							),
-							modifier = Modifier.weight(1f),
+							modifier = Modifier.weight(1f).padding(start = 8.dp),
 							textStyle = TextStyle(
 								color = Color(0xFF5C5C5C),
 								fontSize = 16.sp // Set the font size as needed
@@ -235,7 +254,8 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 								addNotification(context, viewState.noteID.get(index), "", notificationTexts[index])
 
 							},
-							text = "+"
+							text = "+",
+							modifier = Modifier.padding(start = 8.dp, end = 4.dp)
 						)
 						ThemedButton(
 							onClick = {
@@ -248,8 +268,10 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 								setNotesInfo(viewState.noteID, notificationTexts)
 
 							},
-							text = "-"
-							)
+							text = "-",
+							modifier = Modifier.padding(start = 4.dp, end = 8.dp)
+
+						)
 					}
 				}
 			}
@@ -271,7 +293,8 @@ fun ThemedButton(
 		colors = ButtonDefaults.buttonColors(
 			containerColor = MaterialTheme.colorScheme.tertiary, // Red for buttons
 			contentColor = MaterialTheme.colorScheme.onTertiary // White text/icons on tertiary color
-		)
+		),
+		shape = RoundedCornerShape(8.dp)
 	) {
 		Text(text)
 	}

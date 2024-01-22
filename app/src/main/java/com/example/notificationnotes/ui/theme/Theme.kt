@@ -19,7 +19,7 @@ import androidx.core.view.WindowCompat
 private val DarkColorScheme = darkColorScheme(
     primary = Color(0xFF1C1C1E), // Dark grey/black for primary elements
     secondary = Color(0xFFB0B0B0), // Mild grey for text
-    tertiary = Color(0xFF8B0000), // Red for buttons
+    tertiary = Color(0xFF770000), // Red for buttons
     background = Color(0xFF121212), // Dark background
     surface = Color(0xFF1E1E1E), // Dark surface
     onPrimary = Color.White, // White text/icons on primary color
