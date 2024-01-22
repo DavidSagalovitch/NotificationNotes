@@ -24,11 +24,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -41,6 +43,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -64,6 +68,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.material3.ExperimentalMaterial3Api
+
 
 
 const val REQUEST_NOTIFICATION_PERMISSION = 123 // You can use any unique value
@@ -144,16 +150,15 @@ fun loginScreen(onLoginSuccess: () -> Unit) {
 			textAlign = TextAlign.Center
 		)
 		Row {
-			Button(onClick = {  }) {
-				Text("?????")
-			}
-			Button(onClick = { onLoginSuccess() }) {
-				Text("Enter")
-			}
+			ThemedButton(onClick = {  },
+				text = "?????")
+			ThemedButton(onClick = { onLoginSuccess() },
+				text = "Enter")
 		}
 	}
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun mainScreen(context: Context, viewModel: MainViewModel,
                onBackPress:()->Unit) {
@@ -163,18 +168,16 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 	Scaffold(
 		bottomBar = {
 			BottomAppBar(
-				containerColor = MaterialTheme.colorScheme.primaryContainer,
-				contentColor = MaterialTheme.colorScheme.primary,
+				containerColor = MaterialTheme.colorScheme.surface,
+				contentColor = MaterialTheme.colorScheme.onPrimary,
 			) {
-				Button(onClick = { onBackPress() }) {
-					Text("<")
-				}
-				Button(onClick ={viewModel.addEntry()
+				ThemedButton(
+					onClick = { onBackPress() },
+					text = "<")
+				ThemedButton(onClick ={viewModel.addEntry()
 					notificationTexts = notificationTexts + " "
-				}){
-					Text("Add New Notification")
-
-				}
+				},
+					text = "Add New Notification")
 			}
 		},
 	) { innerPadding ->
@@ -210,22 +213,31 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 							keyboardOptions = KeyboardOptions.Default.copy(
 								imeAction = ImeAction.Done
 							),
-							modifier = Modifier.weight(1f)
-
+							modifier = Modifier.weight(1f),
+							textStyle = TextStyle(
+								color = Color(0xFF5C5C5C),
+								fontSize = 16.sp // Set the font size as needed
+							),
+							colors = TextFieldDefaults.textFieldColors(
+								containerColor = MaterialTheme.colorScheme.surface, // Darkish grey background for the TextField
+								cursorColor = MaterialTheme.colorScheme.primary,
+								focusedLabelColor = MaterialTheme.colorScheme.tertiary,
+								focusedIndicatorColor = MaterialTheme.colorScheme.tertiary, // Use tertiary color for the bottom indicator line when focused
+								unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) // Use a lighter color for the bottom indicator line when unfocused
+							)
 
 						)
 
-						Button(
+						ThemedButton(
 							onClick = {
 								viewModel.update(index, notificationTexts[index])
 								setNotesInfo(viewState.noteID, notificationTexts)
 								addNotification(context, viewState.noteID.get(index), "", notificationTexts[index])
 
-							}
-						) {
-							Text("+")
-						}
-						Button(
+							},
+							text = "+"
+						)
+						ThemedButton(
 							onClick = {
 								removedBySwipe = false
 								removeNotification(context, viewState.noteID.get(index))
@@ -236,10 +248,8 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 								setNotesInfo(viewState.noteID, notificationTexts)
 
 							},
-
-							) {
-							Text("-")
-						}
+							text = "-"
+							)
 					}
 				}
 			}
@@ -247,6 +257,25 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 	}
 }
 
+@Composable
+fun ThemedButton(
+	text: String,
+	onClick: () -> Unit,
+	modifier: Modifier = Modifier,
+	enabled: Boolean = true
+) {
+	Button(
+		onClick = onClick,
+		modifier = modifier,
+		enabled = enabled,
+		colors = ButtonDefaults.buttonColors(
+			containerColor = MaterialTheme.colorScheme.tertiary, // Red for buttons
+			contentColor = MaterialTheme.colorScheme.onTertiary // White text/icons on tertiary color
+		)
+	) {
+		Text(text)
+	}
+}
 
 fun addNotification(context: Context,notificationId: Int, title: String, text: String) {
 
