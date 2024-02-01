@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -73,6 +74,14 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.material3.ExperimentalMaterial3Api
+import com.firebase.ui.auth.AuthUI
+import com.firebase.ui.auth.FirebaseAuthUIActivityResultContract
+import com.firebase.ui.auth.data.model.FirebaseAuthUIAuthenticationResult
+import com.google.firebase.Firebase
+import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.database
 
 
 
@@ -84,7 +93,38 @@ var noteIDList: MutableList<Int> = mutableListOf()
 var noteList:MutableList<String> = mutableListOf()
 var removedBySwipe = true
 
+enum class ScreenStates{
+	MAIN,
+	ONLINE,
+	OFFLINE,
+}
+
 class MainActivity : ComponentActivity() {
+	private val signInLauncher = registerForActivityResult(
+		FirebaseAuthUIActivityResultContract(),
+	) { res ->
+		this.onSignInResult(res)
+	}
+
+	private fun onSignInResult(result: FirebaseAuthUIAuthenticationResult) {
+		val response = result.idpResponse
+		if (result.resultCode == RESULT_OK) {
+			// Successfully signed in
+			val user = FirebaseAuth.getInstance().currentUser
+			// ...
+		} else {
+			// Sign in failed. If response is null the user canceled the
+			// sign-in flow using the back button. Otherwise check
+			// response.getError().getErrorCode() and handle the error.
+			// ...
+		}
+	}
+
+	// Choose authentication providers
+	val providers = arrayListOf(
+		AuthUI.IdpConfig.EmailBuilder().build(),
+	)
+
 	@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
@@ -110,6 +150,9 @@ class MainActivity : ComponentActivity() {
 			openNotificationAccessSettings(this)
 		}
 
+
+		FirebaseApp.initializeApp(this);
+
 		setContent {
 			NotificationNotesTheme {
 				// A surface container using the 'background' color from the theme
@@ -117,6 +160,20 @@ class MainActivity : ComponentActivity() {
 					modifier = Modifier.fillMaxSize(),
 					color = MaterialTheme.colorScheme.background
 				) {
+					// Create and launch sign-in intent
+
+					// Choose authentication providers
+					val providers = arrayListOf(
+						AuthUI.IdpConfig.EmailBuilder().build(),
+						AuthUI.IdpConfig.AnonymousBuilder().build(),
+					)
+
+// Create and launch sign-in intent
+					val signInIntent = AuthUI.getInstance()
+						.createSignInIntentBuilder()
+						.setAvailableProviders(providers)
+						.build()
+					signInLauncher.launch(signInIntent)
 					stateMachine(appContext)
 				}
 			}
@@ -126,21 +183,23 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun stateMachine(context: Context, viewModel: MainViewModel = viewModel()) {
-	var currentScreen by remember { mutableStateOf<String>("login") }
+	var currentScreen by remember { mutableStateOf<ScreenStates>(ScreenStates.MAIN) }
 
-	if (currentScreen == "login") {
-		loginScreen {
-			currentScreen = "main"
+	when (currentScreen) {
+		ScreenStates.MAIN -> loginScreen(onStateChange = { newState ->
+			currentScreen = newState
+		})
+		ScreenStates.ONLINE -> 	onlineScreen(context, viewModel){
+			currentScreen = ScreenStates.MAIN
 		}
-	} else if (currentScreen == "main") {
-		mainScreen(context, viewModel){
-			currentScreen = "login"
+		ScreenStates.OFFLINE-> 	offlineScreen(context, viewModel){
+			currentScreen = ScreenStates.MAIN
 		}
 	}
 }
 
 @Composable
-fun loginScreen(onLoginSuccess: () -> Unit) {
+fun loginScreen(onStateChange: (ScreenStates) -> Unit) {
 	Column(
 		modifier = Modifier.fillMaxSize(),
 		verticalArrangement = Arrangement.Center,
@@ -160,22 +219,24 @@ fun loginScreen(onLoginSuccess: () -> Unit) {
 		}
 		Row(modifier = Modifier.fillMaxWidth(),
 			horizontalArrangement = Arrangement.SpaceBetween
-		) {/* Temporarily commenting out, uncomment when additional functionality is added
-			ThemedButton(onClick = {  },
+		) {
+			ThemedButton(onClick = { onStateChange(ScreenStates.ONLINE) },
 				modifier = Modifier
-				.weight(1f),
-				text = "?????")*/
-			ThemedButton(onClick = { onLoginSuccess() },
+					.weight(1f)
+					.padding(10.dp),
+				text = "Online")
+			ThemedButton(onClick = { onStateChange(ScreenStates.OFFLINE) },
 				modifier = Modifier
-					.weight(1f).padding(10.dp),
-				text = "Enter")
+					.weight(1f)
+					.padding(10.dp),
+				text = "Offline")
 		}
 	}
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun mainScreen(context: Context, viewModel: MainViewModel,
+fun offlineScreen(context: Context, viewModel: MainViewModel,
                onBackPress:()->Unit) {
 	val viewState: MainViewModel.ViewState by viewModel.viewState.collectAsStateWithLifecycle()
 	var notificationTexts by remember { mutableStateOf(viewState.note) }
@@ -232,7 +293,162 @@ fun mainScreen(context: Context, viewModel: MainViewModel,
 							keyboardOptions = KeyboardOptions.Default.copy(
 								imeAction = ImeAction.Done
 							),
-							modifier = Modifier.weight(1f).padding(start = 8.dp),
+							modifier = Modifier
+								.weight(1f)
+								.padding(start = 8.dp),
+							textStyle = TextStyle(
+								color = Color(0xFF5C5C5C),
+								fontSize = 16.sp // Set the font size as needed
+							),
+							colors = TextFieldDefaults.textFieldColors(
+								containerColor = MaterialTheme.colorScheme.surface, // Darkish grey background for the TextField
+								cursorColor = MaterialTheme.colorScheme.primary,
+								focusedLabelColor = MaterialTheme.colorScheme.tertiary,
+								focusedIndicatorColor = MaterialTheme.colorScheme.tertiary, // Use tertiary color for the bottom indicator line when focused
+								unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) // Use a lighter color for the bottom indicator line when unfocused
+							)
+
+						)
+
+						ThemedButton(
+							onClick = {
+								viewModel.update(index, notificationTexts[index])
+								setNotesInfo(viewState.noteID, notificationTexts)
+								addNotification(context, viewState.noteID.get(index), "", notificationTexts[index])
+
+							},
+							text = "+",
+							modifier = Modifier.padding(start = 8.dp, end = 4.dp)
+						)
+						ThemedButton(
+							onClick = {
+								removedBySwipe = false
+								removeNotification(context, viewState.noteID.get(index))
+								notificationTexts = notificationTexts.toMutableList().apply{
+									removeAt(index)
+								}
+								viewModel.removeNote(index)
+								setNotesInfo(viewState.noteID, notificationTexts)
+
+							},
+							text = "-",
+							modifier = Modifier.padding(start = 4.dp, end = 8.dp)
+
+						)
+					}
+				}
+			}
+		}
+	}
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun onlineScreen(context: Context, viewModel: MainViewModel,
+                  onBackPress:()->Unit) {
+	val viewState: MainViewModel.ViewState by viewModel.viewState.collectAsStateWithLifecycle()
+	var notificationTexts by remember { mutableStateOf(viewState.note) }
+	var notifcationNumber = 0
+	var userText by remember { mutableStateOf("Enter User Name")}
+
+	val database = Firebase.database
+	val UsersNotes = database.getReference("$userText")
+
+	Scaffold(
+		bottomBar = {
+			BottomAppBar(
+				containerColor = MaterialTheme.colorScheme.surface,
+				contentColor = MaterialTheme.colorScheme.onPrimary,
+			) {
+				ThemedButton(
+					onClick = { onBackPress() },
+					modifier = Modifier.padding(8.dp),
+					text = "<")
+
+				Spacer(modifier = Modifier.weight(1f))
+
+				ThemedButton(onClick = { /*TODO*/ },
+					modifier = Modifier.padding(8.dp),
+					text = "Sign Out")
+
+				Spacer(modifier = Modifier.weight(1f))
+
+				ThemedButton(onClick ={viewModel.addEntry()
+					notificationTexts = notificationTexts + " "
+				},
+					modifier = Modifier.padding(8.dp),
+					text = "Add New Notification")
+			}
+		},
+	) { innerPadding ->
+		Column(
+			modifier = Modifier
+				.padding(innerPadding)
+				.fillMaxSize(),
+			horizontalAlignment = Alignment.CenterHorizontally
+		)
+		{
+			Text(
+				text = "Notification Notes",
+				fontSize = 30.sp,
+				modifier = Modifier.padding(vertical = 16.dp),
+				textAlign = TextAlign.Center
+			)
+			Row(modifier = Modifier
+				.fillMaxWidth() ,
+				horizontalArrangement = Arrangement.SpaceBetween){
+				TextField(
+					value = userText,
+					onValueChange = { newText ->
+						userText = newText
+					},
+					label = {
+						Text("UserName")
+					},
+					keyboardOptions = KeyboardOptions.Default.copy(
+						imeAction = ImeAction.Done
+					),
+					modifier = Modifier
+						.weight(1f)
+						.padding(start = 8.dp),
+					textStyle = TextStyle(
+						color = Color(0xFF5C5C5C),
+						fontSize = 16.sp // Set the font size as needed
+					),
+					colors = TextFieldDefaults.textFieldColors(
+						containerColor = MaterialTheme.colorScheme.surface, // Darkish grey background for the TextField
+						cursorColor = MaterialTheme.colorScheme.primary,
+						focusedLabelColor = MaterialTheme.colorScheme.tertiary,
+						focusedIndicatorColor = MaterialTheme.colorScheme.tertiary, // Use tertiary color for the bottom indicator line when focused
+						unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) // Use a lighter color for the bottom indicator line when unfocused
+					)
+				)
+				ThemedButton(onClick = { /*TODO*/ },
+						modifier = Modifier.padding(start = 4.dp, end = 8.dp),
+						text = "Enter"
+				)
+			}
+			LazyColumn() {
+				items(notificationTexts.size) { index ->
+					Row(
+						modifier = Modifier
+							.fillMaxWidth() ,
+						horizontalArrangement = Arrangement.SpaceBetween){
+						TextField(
+							value = notificationTexts[index],
+							onValueChange = {newText ->
+								notificationTexts = notificationTexts.toMutableList().apply {
+									this[index] = newText
+								} },
+							label = {
+								notifcationNumber = index+1
+								Text("Notification $notifcationNumber") },
+							keyboardOptions = KeyboardOptions.Default.copy(
+								imeAction = ImeAction.Done
+							),
+							modifier = Modifier
+								.weight(1f)
+								.padding(start = 8.dp),
 							textStyle = TextStyle(
 								color = Color(0xFF5C5C5C),
 								fontSize = 16.sp // Set the font size as needed
