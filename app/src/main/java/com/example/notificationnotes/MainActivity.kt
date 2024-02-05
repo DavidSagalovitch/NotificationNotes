@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.provider.Settings.Global
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -80,7 +81,13 @@ import com.firebase.ui.auth.data.model.FirebaseAuthUIAuthenticationResult
 import com.google.firebase.Firebase
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.GenericTypeIndicator
+import com.google.firebase.database.ValueEventListener
 import com.google.firebase.database.database
 
 
@@ -131,7 +138,6 @@ class MainActivity : ComponentActivity() {
 		val appContext: Context by lazy {
 			this
 		}
-		setAppContext(appContext)
 		createNotificationChannel(appContext)
 
 		if (ActivityCompat.checkSelfPermission(
@@ -174,6 +180,7 @@ class MainActivity : ComponentActivity() {
 						.setAvailableProviders(providers)
 						.build()
 					signInLauncher.launch(signInIntent)
+
 					stateMachine(appContext)
 				}
 			}
@@ -189,7 +196,7 @@ fun stateMachine(context: Context, viewModel: MainViewModel = viewModel()) {
 		ScreenStates.MAIN -> loginScreen(onStateChange = { newState ->
 			currentScreen = newState
 		})
-		ScreenStates.ONLINE -> 	onlineScreen(context, viewModel){
+		ScreenStates.ONLINE -> 	onlineScreen(context){
 			currentScreen = ScreenStates.MAIN
 		}
 		ScreenStates.OFFLINE-> 	offlineScreen(context, viewModel){
@@ -220,7 +227,11 @@ fun loginScreen(onStateChange: (ScreenStates) -> Unit) {
 		Row(modifier = Modifier.fillMaxWidth(),
 			horizontalArrangement = Arrangement.SpaceBetween
 		) {
-			ThemedButton(onClick = { onStateChange(ScreenStates.ONLINE) },
+			ThemedButton(onClick = { onStateChange(ScreenStates.ONLINE)
+				val user = FirebaseAuth.getInstance().currentUser
+				user?.let {
+					checkAndSetUserData(it.uid, it.email ?: "")
+				}},
 				modifier = Modifier
 					.weight(1f)
 					.padding(10.dp),
@@ -344,15 +355,16 @@ fun offlineScreen(context: Context, viewModel: MainViewModel,
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun onlineScreen(context: Context, viewModel: MainViewModel,
+fun onlineScreen(context: Context,
                   onBackPress:()->Unit) {
-	val viewState: MainViewModel.ViewState by viewModel.viewState.collectAsStateWithLifecycle()
-	var notificationTexts by remember { mutableStateOf(viewState.note) }
+	var notificationTexts by remember{ mutableStateOf(listOf<String>())}
+	var notificationIds = listOf<String>()
 	var notifcationNumber = 0
 	var userText by remember { mutableStateOf("Enter User Name")}
 
 	val database = Firebase.database
-	val UsersNotes = database.getReference("$userText")
+	lateinit var usersNotes: DatabaseReference
+	var userSet = false
 
 	Scaffold(
 		bottomBar = {
@@ -367,14 +379,20 @@ fun onlineScreen(context: Context, viewModel: MainViewModel,
 
 				Spacer(modifier = Modifier.weight(1f))
 
-				ThemedButton(onClick = { /*TODO*/ },
+				ThemedButton(onClick = { signOut()
+									   onBackPress()},
 					modifier = Modifier.padding(8.dp),
 					text = "Sign Out")
 
 				Spacer(modifier = Modifier.weight(1f))
 
-				ThemedButton(onClick ={viewModel.addEntry()
-					notificationTexts = notificationTexts + " "
+				ThemedButton(onClick ={
+					if(userSet) {
+						notificationTexts = notificationTexts + " "
+						val newNoteId = "noteId${extractIntegerFromNoteID(notificationIds.get(notificationIds.lastIndex))+1}"
+						notificationIds = notificationIds + newNoteId
+						addOrUpdateNoteByEmail(userText, newNoteId, " ")
+					}
 				},
 					modifier = Modifier.padding(8.dp),
 					text = "Add New Notification")
@@ -423,7 +441,26 @@ fun onlineScreen(context: Context, viewModel: MainViewModel,
 						unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) // Use a lighter color for the bottom indicator line when unfocused
 					)
 				)
-				ThemedButton(onClick = { /*TODO*/ },
+				ThemedButton(onClick = { doesUserExist(userText){exists ->
+					if (exists){
+						userSet = true
+						findNotesByEmail(userText) { notes ->
+							if (notes != null) {
+								// Process the notes
+								notificationIds = notes.keys.toList()
+								notificationTexts = notes.values.toList()
+
+							} else {
+								println("No notes found or user does not exist.")
+							}
+						}
+						Log.d("UserCheck", "User exists.")
+					}
+					else{
+						userSet = false
+						notificationTexts = listOf<String>()
+						Log.d("UserCheck", "User does not exist.")
+					}}},
 						modifier = Modifier.padding(start = 4.dp, end = 8.dp),
 						text = "Enter"
 				)
@@ -465,10 +502,8 @@ fun onlineScreen(context: Context, viewModel: MainViewModel,
 
 						ThemedButton(
 							onClick = {
-								viewModel.update(index, notificationTexts[index])
-								setNotesInfo(viewState.noteID, notificationTexts)
-								addNotification(context, viewState.noteID.get(index), "", notificationTexts[index])
-
+								addOrUpdateNoteByEmail(userText, notificationIds[index], notificationTexts[index])
+								addNotification(context, extractIntegerFromNoteID(notificationIds[index]), "", notificationTexts[index])
 							},
 							text = "+",
 							modifier = Modifier.padding(start = 8.dp, end = 4.dp)
@@ -476,12 +511,14 @@ fun onlineScreen(context: Context, viewModel: MainViewModel,
 						ThemedButton(
 							onClick = {
 								removedBySwipe = false
-								removeNotification(context, viewState.noteID.get(index))
+								removeNotification(context, extractIntegerFromNoteID(notificationIds[index]))
+								removeNoteByEmail(userText, notificationTexts[index])
 								notificationTexts = notificationTexts.toMutableList().apply{
 									removeAt(index)
 								}
-								viewModel.removeNote(index)
-								setNotesInfo(viewState.noteID, notificationTexts)
+								notificationIds = notificationIds.toMutableList().apply {
+									removeAt(index)
+								}
 
 							},
 							text = "-",
@@ -555,27 +592,10 @@ private fun createNotificationChannel(context: Context) {
 	}
 }
 
-fun setAppContext(context: Context){
-	globalappContext = context
-}
-
-fun getAppContext(): Context{
-	return globalappContext
-}
-
 fun setNotesInfo(currentID: List<Int>, currentNotes: List<String>){
 	noteIDList.addAll(currentID)
 	noteList.addAll(currentNotes)
 }
-
-fun getNotesIDinfo(): List<Int>{
-	return noteIDList
-}
-
-fun getNoteInfo(): List<String>{
-	return noteList
-}
-
 
 fun isNotificationListenerServiceEnabled(context: Context): Boolean {
 	val contentResolver = context.contentResolver
@@ -590,4 +610,159 @@ fun isNotificationListenerServiceEnabled(context: Context): Boolean {
 fun openNotificationAccessSettings(context: Context) {
 	val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
 	context.startActivity(intent)
+}
+
+fun signOut(){
+	val auth = FirebaseAuth.getInstance()
+	auth.signOut()
+}
+
+fun checkAndSetUserData(userId: String, email: String) {
+	val databaseReference = FirebaseDatabase.getInstance().getReference("users")
+	val userReference = databaseReference.child(userId)
+
+	userReference.addListenerForSingleValueEvent(object : ValueEventListener {
+		override fun onDataChange(snapshot: DataSnapshot) {
+			if (!snapshot.exists()) {
+				// User data does not exist, set the data
+				val initialNotes = mapOf("noteId1" to " ")
+				val userData = mapOf(
+					"userId" to userId,
+					"email" to email,
+					"notes" to initialNotes
+					// Add any other default data you want for the new user
+				)
+				userReference.setValue(userData)
+					.addOnSuccessListener {
+						Log.d("DATABASE", "User data set for $email")
+					}
+					.addOnFailureListener { e ->
+						Log.w("DATABASE", "Setting user data failed", e)
+					}
+			} else {
+				Log.d("DATABASE", "User data already exists for $email")
+			}
+		}
+
+		override fun onCancelled(error: DatabaseError) {
+			Log.w("DATABASE", "Failed to read value.", error.toException())
+		}
+	})
+}
+
+/**
+ * Checks if a user exists by email in Firebase Realtime Database.
+ *
+ * @param email The email address to check.
+ * @param callback A callback function that will be called with the result (true if exists, false otherwise).
+ */
+fun doesUserExist(email: String, callback: (Boolean) -> Unit) {
+	val databaseReference = FirebaseDatabase.getInstance().getReference("users")
+
+	databaseReference.orderByChild("email").equalTo(email).addListenerForSingleValueEvent(object : ValueEventListener {
+		override fun onDataChange(snapshot: DataSnapshot) {
+			// If the snapshot exists and has children, it means the email was found
+			val exists = snapshot.exists() && snapshot.children.iterator().hasNext()
+			callback(exists)
+		}
+
+		override fun onCancelled(error: DatabaseError) {
+			// Handle possible errors
+			Log.e("doesUserExist", "Database error: $error")
+			callback(false)
+		}
+	})
+}
+
+fun findNotesByEmail(userEmail: String, callback: (Map<String, String>?) -> Unit) {
+	val databaseReference = FirebaseDatabase.getInstance().getReference("users")
+
+	// Query the database for users with the specified email
+	databaseReference.orderByChild("email").equalTo(userEmail).addListenerForSingleValueEvent(object : ValueEventListener {
+		override fun onDataChange(snapshot: DataSnapshot) {
+			if (snapshot.exists() && snapshot.children.count() > 0) {
+				// Assuming each email is unique, so there should only be one matching user
+				val userSnapshot = snapshot.children.first()
+
+				// Retrieve the notes data for this user
+				val notes: Map<String, String>? = userSnapshot.child("notes").getValue(object : GenericTypeIndicator<Map<String, String>>() {})
+
+				// Use the callback to return the notes
+				callback(notes)
+			} else {
+				// User not found or no notes exist, return null
+				callback(null)
+			}
+		}
+
+		override fun onCancelled(error: DatabaseError) {
+			// Handle possible errors
+			Log.w("findNotesByEmail", "Database error: $error")
+			callback(null)
+		}
+	})
+}
+
+fun addOrUpdateNoteByEmail(email: String, noteId: String, note: String) {
+	val databaseReference = FirebaseDatabase.getInstance().getReference("users")
+
+	databaseReference.orderByChild("email").equalTo(email).addListenerForSingleValueEvent(object : ValueEventListener {
+		override fun onDataChange(snapshot: DataSnapshot) {
+			if (snapshot.exists()) {
+				for (userSnapshot in snapshot.children) {
+					// Check if the user has a notes field
+					val notesReference = userSnapshot.child("notes").ref
+
+					val noteData = mapOf(
+						noteId to note
+					)
+
+					notesReference.updateChildren(noteData)
+				}
+			}
+		}
+
+		override fun onCancelled(error: DatabaseError) {
+			// Handle possible errors
+			Log.w("addNoteByEmailAndContent", "Database error: $error")
+		}
+	})
+}
+
+fun removeNoteByEmail(email: String, note: String) {
+	val databaseReference = FirebaseDatabase.getInstance().getReference("users")
+
+	databaseReference.orderByChild("email").equalTo(email).addListenerForSingleValueEvent(object : ValueEventListener {
+		override fun onDataChange(snapshot: DataSnapshot) {
+			if (snapshot.exists()) {
+				for (userSnapshot in snapshot.children) {
+					// Check if the user has a notes field
+					if (userSnapshot.child("notes").exists()) {
+						val notesMap = userSnapshot.child("notes").value as? Map<String, String>
+
+						if (notesMap != null) {
+							// Iterate through the notes and find the one with matching content
+							val noteIdToRemove = notesMap.entries.firstOrNull { it.value == note }?.key
+
+							if (noteIdToRemove != null) {
+								// Remove the note by noteId
+								userSnapshot.child("notes").child(noteIdToRemove).ref.removeValue()
+							}
+						}
+					}
+				}
+			}
+		}
+
+		override fun onCancelled(error: DatabaseError) {
+			// Handle possible errors
+			Log.w("removeNoteByEmailAndContent", "Database error: $error")
+		}
+	})
+}
+
+fun extractIntegerFromNoteID(noteID: String): Int {
+	val regex = "\\d+".toRegex()
+	val matchResult = regex.find(noteID)
+	return matchResult?.value?.toIntOrNull() ?: 0 // Default to 0 if no integer is found
 }
