@@ -1,25 +1,20 @@
 package com.example.notificationnotes
 
 import android.app.Application
-import android.content.Context
 import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.notificationnotes.proto.NotificationNotesSerializer
 import com.example.notificationnotes.proto.notificationNotesParamsDataStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.*
 
 
-class MainViewModel(application: Application) : AndroidViewModel(application) {
+class OfflineViewModel(application: Application) : AndroidViewModel(application) {
 
     data class ViewState(
         val noteID: List<Int> = listOf<Int>(),
@@ -57,7 +52,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-
     fun removeNote(index: Int){
 
         viewModelScope.launch(Dispatchers.IO) {
@@ -86,7 +80,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             notificationNotesParamsDataStore.updateData { currentParams ->
                 currentParams.toBuilder()
                     .addNoteID(if (currentParams.noteIDList.isEmpty()) 1
-                    else currentParams.noteIDList.get(currentParams.noteIDList.lastIndex)+1)
+                    else currentParams.noteIDList.get(currentParams.noteIDList.lastIndex)+2)
                     .addNote(" ")
                     .build()
             }

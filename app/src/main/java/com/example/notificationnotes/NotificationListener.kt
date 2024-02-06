@@ -18,10 +18,10 @@ class NotificationListener : NotificationListenerService() {
 
 		val notificationId = sbn?.id
 
-		if (channelId == CHANNEL_ID && notificationId != null  && removedBySwipe) {
+		if (channelId == OFFLINE_CHANNEL_ID && notificationId != null  && removedBySwipe) {
 			Log.d(TAG, "Notification Removed: ${sbn.notification}")
 			val note = noteList.get(noteIDList.indexOf(notificationId))
-			addNotification(globalappContext, notificationId, " ", note)
+			addNotification(globalappContext, notificationId, " ", note, channelId)
 		}
 		removedBySwipe = true
 

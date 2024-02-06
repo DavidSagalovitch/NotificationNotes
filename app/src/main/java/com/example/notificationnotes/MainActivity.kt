@@ -1,6 +1,7 @@
 package com.example.notificationnotes
 
 import android.Manifest
+import android.app.Activity
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -75,8 +76,10 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.core.app.ActivityCompat.startActivityForResult
 import com.firebase.ui.auth.AuthUI
 import com.firebase.ui.auth.FirebaseAuthUIActivityResultContract
+import com.firebase.ui.auth.IdpResponse
 import com.firebase.ui.auth.data.model.FirebaseAuthUIAuthenticationResult
 import com.google.firebase.Firebase
 import com.google.firebase.FirebaseApp
@@ -91,10 +94,6 @@ import com.google.firebase.database.ValueEventListener
 import com.google.firebase.database.database
 
 
-
-const val REQUEST_NOTIFICATION_PERMISSION = 123 // You can use any unique value
-val CHANNEL_ID = "my_notification_channel"
-
 lateinit var globalappContext: Context
 var noteIDList: MutableList<Int> = mutableListOf()
 var noteList:MutableList<String> = mutableListOf()
@@ -105,6 +104,9 @@ enum class ScreenStates{
 	ONLINE,
 	OFFLINE,
 }
+
+var isUserSignedIn = mutableStateOf(false)
+
 
 class MainActivity : ComponentActivity() {
 	private val signInLauncher = registerForActivityResult(
@@ -117,20 +119,19 @@ class MainActivity : ComponentActivity() {
 		val response = result.idpResponse
 		if (result.resultCode == RESULT_OK) {
 			// Successfully signed in
+			isUserSignedIn.value = true
 			val user = FirebaseAuth.getInstance().currentUser
-			// ...
+			user?.let {
+				checkAndSetUserData(it.uid, it.email ?: "")
+			}
 		} else {
+			isUserSignedIn.value = false
 			// Sign in failed. If response is null the user canceled the
 			// sign-in flow using the back button. Otherwise check
 			// response.getError().getErrorCode() and handle the error.
 			// ...
 		}
 	}
-
-	// Choose authentication providers
-	val providers = arrayListOf(
-		AuthUI.IdpConfig.EmailBuilder().build(),
-	)
 
 	@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 	override fun onCreate(savedInstanceState: Bundle?) {
@@ -159,6 +160,8 @@ class MainActivity : ComponentActivity() {
 
 		FirebaseApp.initializeApp(this);
 
+		globalappContext = appContext
+
 		setContent {
 			NotificationNotesTheme {
 				// A surface container using the 'background' color from the theme
@@ -166,22 +169,22 @@ class MainActivity : ComponentActivity() {
 					modifier = Modifier.fillMaxSize(),
 					color = MaterialTheme.colorScheme.background
 				) {
-					// Create and launch sign-in intent
-
-					// Choose authentication providers
-					val providers = arrayListOf(
-						AuthUI.IdpConfig.EmailBuilder().build(),
-						AuthUI.IdpConfig.AnonymousBuilder().build(),
-					)
-
-// Create and launch sign-in intent
-					val signInIntent = AuthUI.getInstance()
-						.createSignInIntentBuilder()
-						.setAvailableProviders(providers)
-						.build()
-					signInLauncher.launch(signInIntent)
-
-					stateMachine(appContext)
+					stateMachine(appContext, launchSignInFlow= {
+						if (!isUserSignedIn.value) {
+							// Define the providers inside the lambda if they are specific to the sign-in flow
+							val providers = arrayListOf(
+								AuthUI.IdpConfig.EmailBuilder().build(),
+								AuthUI.IdpConfig.AnonymousBuilder().build(),
+							)
+							// Create and launch sign-in intent
+							val signInIntent = AuthUI.getInstance()
+								.createSignInIntentBuilder()
+								.setAvailableProviders(providers)
+								.build()
+							signInLauncher.launch(signInIntent)
+						}
+					},
+						)
 				}
 			}
 		}
@@ -189,12 +192,15 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun stateMachine(context: Context, viewModel: MainViewModel = viewModel()) {
+fun stateMachine(context: Context, viewModel: OfflineViewModel = viewModel(), launchSignInFlow: () -> Unit) {
 	var currentScreen by remember { mutableStateOf<ScreenStates>(ScreenStates.MAIN) }
 
 	when (currentScreen) {
 		ScreenStates.MAIN -> loginScreen(onStateChange = { newState ->
 			currentScreen = newState
+			if (newState == ScreenStates.ONLINE) {
+				launchSignInFlow()
+			}
 		})
 		ScreenStates.ONLINE -> 	onlineScreen(context){
 			currentScreen = ScreenStates.MAIN
@@ -227,11 +233,9 @@ fun loginScreen(onStateChange: (ScreenStates) -> Unit) {
 		Row(modifier = Modifier.fillMaxWidth(),
 			horizontalArrangement = Arrangement.SpaceBetween
 		) {
-			ThemedButton(onClick = { onStateChange(ScreenStates.ONLINE)
-				val user = FirebaseAuth.getInstance().currentUser
-				user?.let {
-					checkAndSetUserData(it.uid, it.email ?: "")
-				}},
+			ThemedButton(onClick = {
+				onStateChange(ScreenStates.ONLINE)
+				},
 				modifier = Modifier
 					.weight(1f)
 					.padding(10.dp),
@@ -247,9 +251,9 @@ fun loginScreen(onStateChange: (ScreenStates) -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun offlineScreen(context: Context, viewModel: MainViewModel,
+fun offlineScreen(context: Context, viewModel: OfflineViewModel,
                onBackPress:()->Unit) {
-	val viewState: MainViewModel.ViewState by viewModel.viewState.collectAsStateWithLifecycle()
+	val viewState: OfflineViewModel.ViewState by viewModel.viewState.collectAsStateWithLifecycle()
 	var notificationTexts by remember { mutableStateOf(viewState.note) }
 	var notifcationNumber = 0
 	Scaffold(
@@ -325,7 +329,7 @@ fun offlineScreen(context: Context, viewModel: MainViewModel,
 							onClick = {
 								viewModel.update(index, notificationTexts[index])
 								setNotesInfo(viewState.noteID, notificationTexts)
-								addNotification(context, viewState.noteID.get(index), "", notificationTexts[index])
+								addNotification(context, viewState.noteID.get(index), "", notificationTexts[index], OFFLINE_CHANNEL_ID)
 
 							},
 							text = "+",
@@ -389,7 +393,7 @@ fun onlineScreen(context: Context,
 				ThemedButton(onClick ={
 					if(userSet) {
 						notificationTexts = notificationTexts + " "
-						val newNoteId = "noteId${extractIntegerFromNoteID(notificationIds.get(notificationIds.lastIndex))+1}"
+						val newNoteId = "noteId${extractIntegerFromNoteID(notificationIds.get(notificationIds.lastIndex))+2}"
 						notificationIds = notificationIds + newNoteId
 						addOrUpdateNoteByEmail(userText, newNoteId, " ")
 					}
@@ -503,7 +507,7 @@ fun onlineScreen(context: Context,
 						ThemedButton(
 							onClick = {
 								addOrUpdateNoteByEmail(userText, notificationIds[index], notificationTexts[index])
-								addNotification(context, extractIntegerFromNoteID(notificationIds[index]), "", notificationTexts[index])
+								addNotification(context, extractIntegerFromNoteID(notificationIds[index]), "", notificationTexts[index], ONLINE_CHANNEL_ID)
 							},
 							text = "+",
 							modifier = Modifier.padding(start = 8.dp, end = 4.dp)
@@ -553,68 +557,33 @@ fun ThemedButton(
 	}
 }
 
-fun addNotification(context: Context,notificationId: Int, title: String, text: String) {
-
-	// Create a notification builder
-	val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-		.setSmallIcon(R.drawable.ic_launcher_foreground) // Set the small icon for the notification
-		.setContentTitle(title) // Set the title of the notification
-		.setContentText(text) // Set the content text of the notification
-		.setStyle(NotificationCompat.BigTextStyle().bigText(text))
-		.setPriority(NotificationCompat.PRIORITY_DEFAULT) // Set the priority of the notification
-
-	// Get the notification manager
-	val notificationManager = NotificationManagerCompat.from(context)
-
-	// Send the notification
-	notificationManager.notify(notificationId, builder.build())
+// Save "Remember Me" flag and user data to shared preferences
+fun saveRememberMeData(context: Context, rememberMe: Boolean, email: String?) {
+	val sharedPreferences = context.getSharedPreferences("user_data", Context.MODE_PRIVATE)
+	val editor = sharedPreferences.edit()
+	editor.putBoolean("rememberMe", rememberMe)
+	editor.putString("email", email)
+	editor.apply()
 }
 
-fun removeNotification(context: Context, notificationId: Int){
-	// Get the notification manager
-	val notificationManager = NotificationManagerCompat.from(context)
-	notificationManager.cancel(notificationId)
-}
-
-private fun createNotificationChannel(context: Context) {
-
-	if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-		// Create the NotificationChannel.
-		val name = context.getString(R.string.channel_name)
-		val descriptionText = context.getString(R.string.channel_description)
-		val importance = NotificationManager.IMPORTANCE_LOW
-        val mChannel = NotificationChannel(CHANNEL_ID, name, importance)
-		mChannel.description = descriptionText
-		// Register the channel with the system. You can't change the importance
-		// or other notification behaviors after this.
-		val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-		notificationManager.createNotificationChannel(mChannel)
-	}
-}
-
-fun setNotesInfo(currentID: List<Int>, currentNotes: List<String>){
-	noteIDList.addAll(currentID)
-	noteList.addAll(currentNotes)
-}
-
-fun isNotificationListenerServiceEnabled(context: Context): Boolean {
-	val contentResolver = context.contentResolver
-	val enabledNotificationListeners = Settings.Secure.getString(
-		contentResolver,
-		"enabled_notification_listeners"
-	)
-	val packageName = context.packageName
-	return enabledNotificationListeners?.contains(packageName) == true
-}
-
-fun openNotificationAccessSettings(context: Context) {
-	val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-	context.startActivity(intent)
+// Retrieve "Remember Me" flag and user data from shared preferences
+fun getRememberMeData(context: Context): Pair<Boolean, String?> {
+	val sharedPreferences = context.getSharedPreferences("user_data", Context.MODE_PRIVATE)
+	val rememberMe = sharedPreferences.getBoolean("rememberMe", false)
+	val email = sharedPreferences.getString("email", null)
+	return Pair(rememberMe, email)
 }
 
 fun signOut(){
-	val auth = FirebaseAuth.getInstance()
-	auth.signOut()
+		AuthUI.getInstance()
+			.signOut(globalappContext)
+			.addOnCompleteListener {
+				if (it.isSuccessful) {
+					isUserSignedIn.value = false
+				} else {
+					// Handle sign-out failure
+				}
+			}
 }
 
 fun checkAndSetUserData(userId: String, email: String) {
@@ -625,7 +594,7 @@ fun checkAndSetUserData(userId: String, email: String) {
 		override fun onDataChange(snapshot: DataSnapshot) {
 			if (!snapshot.exists()) {
 				// User data does not exist, set the data
-				val initialNotes = mapOf("noteId1" to " ")
+				val initialNotes = mapOf("noteId2" to " ")
 				val userData = mapOf(
 					"userId" to userId,
 					"email" to email,
