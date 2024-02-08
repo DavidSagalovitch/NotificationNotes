@@ -18,9 +18,16 @@ class NotificationListener : NotificationListenerService() {
 
 		val notificationId = sbn?.id
 
-		if (channelId == OFFLINE_CHANNEL_ID && notificationId != null  && removedBySwipe) {
+		var note = "temp"
+
+		if ((channelId == OFFLINE_CHANNEL_ID || channelId == ONLINE_CHANNEL_ID) && notificationId != null  && removedBySwipe) {
 			Log.d(TAG, "Notification Removed: ${sbn.notification}")
-			val note = noteList.get(noteIDList.indexOf(notificationId))
+			if(channelId == OFFLINE_CHANNEL_ID ) {
+				note = noteList.get(noteIDList.indexOf(notificationId))
+			}
+			if(channelId == ONLINE_CHANNEL_ID) {
+				note = onlineNoteList.get(onlineNoteIdList.indexOf(notificationId))
+			}
 			addNotification(globalappContext, notificationId, " ", note, channelId)
 		}
 		removedBySwipe = true

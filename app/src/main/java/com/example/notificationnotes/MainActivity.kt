@@ -97,6 +97,8 @@ import com.google.firebase.database.database
 lateinit var globalappContext: Context
 var noteIDList: MutableList<Int> = mutableListOf()
 var noteList:MutableList<String> = mutableListOf()
+var onlineNoteIdList: MutableList<Int> = mutableListOf()
+var onlineNoteList: MutableList<String> = mutableListOf()
 var removedBySwipe = true
 
 enum class ScreenStates{
@@ -170,7 +172,8 @@ class MainActivity : ComponentActivity() {
 					color = MaterialTheme.colorScheme.background
 				) {
 					stateMachine(appContext, launchSignInFlow= {
-						if (!isUserSignedIn.value) {
+						if(isUserSignedin()){
+							if (!isUserSignedIn.value) {
 							// Define the providers inside the lambda if they are specific to the sign-in flow
 							val providers = arrayListOf(
 								AuthUI.IdpConfig.EmailBuilder().build(),
@@ -182,6 +185,7 @@ class MainActivity : ComponentActivity() {
 								.setAvailableProviders(providers)
 								.build()
 							signInLauncher.launch(signInIntent)
+							}
 						}
 					},
 						)
@@ -508,6 +512,10 @@ fun onlineScreen(context: Context,
 							onClick = {
 								addOrUpdateNoteByEmail(userText, notificationIds[index], notificationTexts[index])
 								addNotification(context, extractIntegerFromNoteID(notificationIds[index]), "", notificationTexts[index], ONLINE_CHANNEL_ID)
+								val integersofIDs = notificationIds.map { id ->
+									extractIntegerFromNoteID(id)
+								}
+								setOnlineNotesInfo(integersofIDs, notificationTexts)
 							},
 							text = "+",
 							modifier = Modifier.padding(start = 8.dp, end = 4.dp)
@@ -523,6 +531,10 @@ fun onlineScreen(context: Context,
 								notificationIds = notificationIds.toMutableList().apply {
 									removeAt(index)
 								}
+								val integersofIDs = notificationIds.map { id ->
+									extractIntegerFromNoteID(id)
+								}
+								setOnlineNotesInfo(integersofIDs, notificationTexts)
 
 							},
 							text = "-",
@@ -557,21 +569,25 @@ fun ThemedButton(
 	}
 }
 
-// Save "Remember Me" flag and user data to shared preferences
-fun saveRememberMeData(context: Context, rememberMe: Boolean, email: String?) {
-	val sharedPreferences = context.getSharedPreferences("user_data", Context.MODE_PRIVATE)
-	val editor = sharedPreferences.edit()
-	editor.putBoolean("rememberMe", rememberMe)
-	editor.putString("email", email)
-	editor.apply()
+fun setNotesInfo(currentID: List<Int>, currentNotes: List<String>){
+	noteIDList.addAll(currentID)
+	noteList.addAll(currentNotes)
 }
 
-// Retrieve "Remember Me" flag and user data from shared preferences
-fun getRememberMeData(context: Context): Pair<Boolean, String?> {
-	val sharedPreferences = context.getSharedPreferences("user_data", Context.MODE_PRIVATE)
-	val rememberMe = sharedPreferences.getBoolean("rememberMe", false)
-	val email = sharedPreferences.getString("email", null)
-	return Pair(rememberMe, email)
+
+fun setOnlineNotesInfo(currentID: List<Int>, currentNotes: List<String>){
+	onlineNoteIdList.addAll(currentID)
+	onlineNoteList.addAll(currentNotes)
+}
+
+fun isUserSignedin(): Boolean{
+	// Check if the user is signed in (non-null) and update UI accordingly.
+	val currentUser = FirebaseAuth.getInstance().currentUser
+	if (currentUser != null) {
+		return false
+	} else {
+		return true
+	}
 }
 
 fun signOut(){

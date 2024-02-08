@@ -63,11 +63,6 @@ fun createNotificationChannel(context: Context) {
 	}
 }
 
-fun setNotesInfo(currentID: List<Int>, currentNotes: List<String>){
-	noteIDList.addAll(currentID)
-	noteList.addAll(currentNotes)
-}
-
 fun isNotificationListenerServiceEnabled(context: Context): Boolean {
 	val contentResolver = context.contentResolver
 	val enabledNotificationListeners = Settings.Secure.getString(
