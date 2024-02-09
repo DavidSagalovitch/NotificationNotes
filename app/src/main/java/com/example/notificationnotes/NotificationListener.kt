@@ -1,5 +1,6 @@
 package com.example.notificationnotes
 
+import android.app.Notification
 import android.os.Build
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -18,17 +19,17 @@ class NotificationListener : NotificationListenerService() {
 
 		val notificationId = sbn?.id
 
-		var note = "temp"
+		val contents = notification?.extras
+
+		val title = contents?.getString(Notification.EXTRA_TITLE)
+		val text = contents?.getCharSequence(Notification.EXTRA_TEXT).toString()
+		val subText = contents?.getCharSequence(Notification.EXTRA_SUB_TEXT).toString()
 
 		if ((channelId == OFFLINE_CHANNEL_ID || channelId == ONLINE_CHANNEL_ID) && notificationId != null  && removedBySwipe) {
 			Log.d(TAG, "Notification Removed: ${sbn.notification}")
-			if(channelId == OFFLINE_CHANNEL_ID ) {
-				note = noteList.get(noteIDList.indexOf(notificationId))
+			if (title != null) {
+				addNotification(globalappContext, notificationId, title, text, channelId)
 			}
-			if(channelId == ONLINE_CHANNEL_ID) {
-				note = onlineNoteList.get(onlineNoteIdList.indexOf(notificationId))
-			}
-			addNotification(globalappContext, notificationId, " ", note, channelId)
 		}
 		removedBySwipe = true
 

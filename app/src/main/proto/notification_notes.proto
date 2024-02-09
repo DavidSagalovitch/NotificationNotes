@@ -5,4 +5,5 @@ package com.example.notificationnotes;
 message notificationNote{
   repeated int32 noteID = 1;
   repeated string note = 2;
+  repeated string note_title = 3;
 }

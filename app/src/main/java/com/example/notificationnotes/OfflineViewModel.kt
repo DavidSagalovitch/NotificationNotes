@@ -18,7 +18,8 @@ class OfflineViewModel(application: Application) : AndroidViewModel(application)
 
     data class ViewState(
         val noteID: List<Int> = listOf<Int>(),
-        val note: List<String> = listOf<String>()
+        val note: List<String> = listOf<String>(),
+        val noteTitle: List<String> = listOf<String>()
     )
 
     private val _viewState = MutableStateFlow(ViewState())
@@ -36,17 +37,19 @@ class OfflineViewModel(application: Application) : AndroidViewModel(application)
                 // Update the view state when data changes
                 _viewState.value = _viewState.value.copy(
                     noteID= startupParams.noteIDList.toList(),
-                    note = startupParams.noteList.toList()
+                    note = startupParams.noteList.toList(),
+                    noteTitle = startupParams.noteTitleList.toList()
                 )
             }
         }
     }
 
-    fun update(index: Int, note: String) {
+    fun update(index: Int, title: String, note: String) {
         viewModelScope.launch(Dispatchers.Unconfined) {
             notificationNotesParamsDataStore.updateData { currentParams ->
                 currentParams.toBuilder()
                     .setNote(index, note)
+                    .setNoteTitle(index,title)
                     .build()
             }
         }
@@ -61,14 +64,18 @@ class OfflineViewModel(application: Application) : AndroidViewModel(application)
                 updatedNoteList = updatedNoteList.toMutableList().apply{
                     removeAt(index)
                 }
+                var updatedNoteTitle: List<String> = currentParams.noteTitleList
+                updatedNoteTitle = updatedNoteTitle.toMutableList().apply {
+                    removeAt(index)
+                }
                 var updatedNoteID: List<Int> = currentParams.noteIDList
                 updatedNoteID = updatedNoteID.toMutableList().apply {
                     removeAt(index)
                 }
                 currentParams.toBuilder()
-                    .clearNoteID()
+                    .clear()
                     .addAllNoteID(updatedNoteID)
-                    .clearNote()
+                    .addAllNoteTitle(updatedNoteTitle)
                     .addAllNote(updatedNoteList)
                     .build()
             }
@@ -82,6 +89,7 @@ class OfflineViewModel(application: Application) : AndroidViewModel(application)
                     .addNoteID(if (currentParams.noteIDList.isEmpty()) 1
                     else currentParams.noteIDList.get(currentParams.noteIDList.lastIndex)+2)
                     .addNote(" ")
+                    .addNoteTitle(" ")
                     .build()
             }
 

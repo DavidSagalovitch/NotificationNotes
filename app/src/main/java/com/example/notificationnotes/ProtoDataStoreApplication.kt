@@ -22,16 +22,22 @@ class ProtoDataStoreApplication : Application() {
 		appCoroutineScope.launch {
 			val beforeUpdate = notificationNotesParamsDataStore.data.first()
 			notificationNotesParamsDataStore.updateData { currentParams ->
-				val currentNoteList: List<String> = currentParams.noteList
 				val currentNoteIDs: List<Int> = currentParams.noteIDList
+				val currentNoteTitles: List<String> = currentParams.noteTitleList
+				val currentNoteList: List<String> = currentParams.noteList
 				currentParams.toBuilder()
-					.clearNoteID()
+					.clear()
 					.addAllNoteID( if (currentNoteIDs.isEmpty()) {
 						listOf<Int>()
 					} else {
 						currentNoteIDs
 					})
-					.clearNote()
+					.addAllNoteTitle(if (currentNoteTitles.isEmpty()){
+						listOf<String>()
+					}
+					else{
+						currentNoteList
+					})
 					.addAllNote( if (currentNoteList.isEmpty()) {
 						listOf<String>()
 					} else {
