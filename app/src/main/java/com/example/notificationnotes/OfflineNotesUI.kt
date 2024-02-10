@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -21,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,6 +36,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.util.UUID
+
+data class OfflineNotesInfo(val key: String = UUID.randomUUID().toString(), val title:String, val content: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,8 +46,16 @@ fun offlineScreen(context: Context, viewModel: OfflineViewModel,
                   onBackPress:()->Unit,
                   onEntryPress:(index:Int)->Unit) {
 	val viewState: OfflineViewModel.ViewState by viewModel.viewState.collectAsStateWithLifecycle()
-	var notificationTexts by remember { mutableStateOf(viewState.note) }
-	var notificationTitles by remember { mutableStateOf(viewState.noteTitle) }
+
+	var notesInfo by remember { mutableStateOf(listOf<OfflineNotesInfo>()) }
+
+	LaunchedEffect(key1 = "combineNoteInfo") {
+		val combinedNotes = viewState.noteTitle.zip(viewState.note) { title, content ->
+			OfflineNotesInfo(title = title, content = content)
+		}
+		notesInfo = combinedNotes
+	}
+
 	Scaffold(
 		bottomBar = {
 			BottomAppBar(
@@ -57,8 +70,7 @@ fun offlineScreen(context: Context, viewModel: OfflineViewModel,
 				Spacer(modifier = Modifier.weight(1f))
 
 				ThemedButton(onClick ={viewModel.addEntry()
-					notificationTexts = notificationTexts + " "
-					notificationTitles = notificationTitles + " "
+					notesInfo = notesInfo + OfflineNotesInfo(title = " ", content = " ")
 				},
 					modifier = Modifier.padding(8.dp),
 					text = "Add New Notification")
@@ -80,7 +92,7 @@ fun offlineScreen(context: Context, viewModel: OfflineViewModel,
 				textAlign = TextAlign.Center
 			)
 			LazyColumn() {
-				items(notificationTexts.size) { index ->
+				items(items = notesInfo, key = {it.key}) { note ->
 					Row(
 						modifier = Modifier
 							.fillMaxWidth()
@@ -89,45 +101,23 @@ fun offlineScreen(context: Context, viewModel: OfflineViewModel,
 						verticalAlignment = Alignment.CenterVertically,
 
 						){
-						Spacer(modifier = Modifier.width(8.dp))
-						ClickableTextBox(
-							text = notificationTexts[index],
-							label = notificationTitles[index],
-							onClick = { onEntryPress(index) },
-							modifier = Modifier
-								.weight(1f)
-								.padding(bottom = 1.dp)
-						)
-						Spacer(modifier = Modifier.width(8.dp))
-						/*
-						ThemedButton(
-							onClick = {
-								viewModel.update(index, notificationTitles[index], notificationTexts[index])
-								setNotesInfo(viewState.noteID, notificationTexts)
-								addNotification(context, viewState.noteID.get(index), notificationTitles[index], notificationTexts[index], OFFLINE_CHANNEL_ID)
+						SwipeToDeleteContainer(
+							item = note,
+							onDelete ={
+							removedBySwipe = false
+							removeNotification(context, viewState.noteID.get(notesInfo.indexOf(note)))
+								viewModel.removeNote(notesInfo.indexOf(note))
+								notesInfo = notesInfo.filterNot{it.key == note.key}
 
-							},
-							text = "+",
-						)
-						Spacer(modifier = Modifier.width(8.dp)) // Adds spacing between the two buttons
-						 */
-						ThemedButton(
-							onClick = {
-								removedBySwipe = false
-								removeNotification(context, viewState.noteID.get(index))
-								notificationTexts = notificationTexts.toMutableList().apply{
-									removeAt(index)
-								}
-								notificationTitles = notificationTitles.toMutableList().apply{
-									removeAt(index)
-								}
-								viewModel.removeNote(index)
-								setNotesInfo(viewState.noteID, notificationTexts)
-
-							},
-							text = "-",
-						)
-						Spacer(modifier = Modifier.width(8.dp))
+						} ) {
+							ClickableTextBox(
+								text = note.content,
+								label = note.title,
+								onClick = { onEntryPress(notesInfo.indexOf(note))},
+								modifier = Modifier
+									.weight(1f)
+							)
+						}
 					}
 				}
 			}
