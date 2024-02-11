@@ -176,7 +176,7 @@ fun stateMachine(context: Context, viewModel: OfflineViewModel = viewModel(), la
 				currentScreen = ScreenStates.OFFLINE_ENTRY
 				currentEntry = index
 			})
-		ScreenStates.OFFLINE_ENTRY -> notificationEntryOffline(context, viewModel, currentEntry) {
+		ScreenStates.OFFLINE_ENTRY -> NotificationEntryOffline(context, viewModel, currentEntry) {
 			currentScreen = ScreenStates.OFFLINE
 		}
 	}

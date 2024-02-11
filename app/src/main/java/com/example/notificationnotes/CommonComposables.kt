@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
@@ -25,6 +26,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismiss
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberDismissState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,6 +40,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -60,6 +65,32 @@ fun ThemedButton(
 	) {
 		Text(text)
 	}
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ThemedTextField(label: @Composable() (() -> Unit)?, value: String, onValueChange: (String) -> Unit, modifier: Modifier = Modifier, singleLine: Boolean){
+	TextField(
+		label = label,
+		value = value,
+		onValueChange = onValueChange,
+		keyboardOptions = KeyboardOptions.Default.copy(
+		imeAction = ImeAction.Done
+	),
+		modifier = modifier,
+		textStyle = TextStyle(
+			color = Color(0xFF5C5C5C),
+			fontSize = 16.sp // Set the font size as needed
+		),
+		colors = TextFieldDefaults.textFieldColors(
+			containerColor = MaterialTheme.colorScheme.surface, // Darkish grey background for the TextField
+			cursorColor = MaterialTheme.colorScheme.primary,
+			focusedLabelColor = MaterialTheme.colorScheme.tertiary,
+			focusedIndicatorColor = MaterialTheme.colorScheme.tertiary, // Use tertiary color for the bottom indicator line when focused
+			unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) // Use a lighter color for the bottom indicator line when unfocused
+		),
+		singleLine = singleLine
+	)
 }
 
 @Composable

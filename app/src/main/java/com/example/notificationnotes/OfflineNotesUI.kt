@@ -127,7 +127,7 @@ fun offlineScreen(context: Context, viewModel: OfflineViewModel,
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun notificationEntryOffline(context:Context, viewModel: OfflineViewModel,index: Int, onBackPress: () -> Unit){
+fun NotificationEntryOffline(context:Context, viewModel: OfflineViewModel,index: Int, onBackPress: () -> Unit){
 	val viewState: OfflineViewModel.ViewState by viewModel.viewState.collectAsStateWithLifecycle()
 	var noteDescription by remember { mutableStateOf(viewState.note.get(index)) }
 	var noteTitle by remember { mutableStateOf(viewState.noteTitle.get(index)) }
@@ -167,56 +167,29 @@ fun notificationEntryOffline(context:Context, viewModel: OfflineViewModel,index:
 				modifier = Modifier.padding(vertical = 16.dp),
 				textAlign = TextAlign.Center
 			)
-			TextField(
+			ThemedTextField(
 				label = { Text("Title") },
 				value = noteTitle,
 				onValueChange = { newText ->
 					noteTitle = newText
 				},
-				keyboardOptions = KeyboardOptions.Default.copy(
-					imeAction = ImeAction.Done
-				),
 				modifier = Modifier
 					.padding(start = 8.dp, end = 8.dp)
 					.fillMaxWidth()
 					.heightIn(max = 56.dp),
 				singleLine = true,
-				textStyle = TextStyle(
-					color = Color(0xFF5C5C5C),
-					fontSize = 16.sp // Set the font size as needed
-				),
-				colors = TextFieldDefaults.textFieldColors(
-					containerColor = MaterialTheme.colorScheme.surface, // Darkish grey background for the TextField
-					cursorColor = MaterialTheme.colorScheme.primary,
-					focusedLabelColor = MaterialTheme.colorScheme.tertiary,
-					focusedIndicatorColor = MaterialTheme.colorScheme.tertiary, // Use tertiary color for the bottom indicator line when focused
-					unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) // Use a lighter color for the bottom indicator line when unfocused
-				)
 			)
-			TextField(
+			ThemedTextField(
 				label = { Text("Content") },
 				value = noteDescription,
 				onValueChange = { newText ->
 					noteDescription = newText
 				},
-				keyboardOptions = KeyboardOptions.Default.copy(
-					imeAction = ImeAction.Done
-				),
 				modifier = Modifier
 					.weight(1f)
 					.padding(8.dp)
 					.fillMaxSize(),
-				textStyle = TextStyle(
-					color = Color(0xFF5C5C5C),
-					fontSize = 16.sp // Set the font size as needed
-				),
-				colors = TextFieldDefaults.textFieldColors(
-					containerColor = MaterialTheme.colorScheme.surface, // Darkish grey background for the TextField
-					cursorColor = MaterialTheme.colorScheme.primary,
-					focusedLabelColor = MaterialTheme.colorScheme.tertiary,
-					focusedIndicatorColor = MaterialTheme.colorScheme.tertiary, // Use tertiary color for the bottom indicator line when focused
-					unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) // Use a lighter color for the bottom indicator line when unfocused
-				)
+				singleLine = false
 			)
 		}
 	}
