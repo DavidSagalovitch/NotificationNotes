@@ -41,7 +41,13 @@ fun checkAndSetUserData(userId: String, email: String) {
 		override fun onDataChange(snapshot: DataSnapshot) {
 			if (!snapshot.exists()) {
 				// User data does not exist, set the data
-				val initialNotes = mapOf("noteId2" to " ")
+				val initialNotes = mapOf(
+					"note1" to mapOf(
+						"title" to " ",
+						"content" to " ",
+						"noteID" to "2"
+					)
+				)
 				val userData = mapOf(
 					"userId" to userId,
 					"email" to email,
@@ -91,37 +97,31 @@ fun doesUserExist(email: String, callback: (Boolean) -> Unit) {
 	})
 }
 
-fun findNotesByEmail(userEmail: String, callback: (Map<String, String>?) -> Unit) {
+fun findNotesByEmail(userEmail: String, callback: (Map<String, Map<String, String>>?) -> Unit) {
 	val databaseReference = FirebaseDatabase.getInstance().getReference("users")
 
-	// Query the database for users with the specified email
 	databaseReference.orderByChild("email").equalTo(userEmail).addListenerForSingleValueEvent(object :
 		ValueEventListener {
 		override fun onDataChange(snapshot: DataSnapshot) {
 			if (snapshot.exists() && snapshot.children.count() > 0) {
-				// Assuming each email is unique, so there should only be one matching user
 				val userSnapshot = snapshot.children.first()
 
-				// Retrieve the notes data for this user
-				val notes: Map<String, String>? = userSnapshot.child("notes").getValue(object : GenericTypeIndicator<Map<String, String>>() {})
+				val notes: Map<String, Map<String, String>>? = userSnapshot.child("notes").getValue(object : GenericTypeIndicator<Map<String, Map<String, String>>>() {})
 
-				// Use the callback to return the notes
 				callback(notes)
 			} else {
-				// User not found or no notes exist, return null
 				callback(null)
 			}
 		}
 
 		override fun onCancelled(error: DatabaseError) {
-			// Handle possible errors
 			Log.w("findNotesByEmail", "Database error: $error")
 			callback(null)
 		}
 	})
 }
 
-fun addOrUpdateNoteByEmail(email: String, noteId: String, note: String) {
+fun addOrUpdateNoteByEmail(email: String, noteId: String, note: Map<String, String>) {
 	val databaseReference = FirebaseDatabase.getInstance().getReference("users")
 
 	databaseReference.orderByChild("email").equalTo(email).addListenerForSingleValueEvent(object :
@@ -129,26 +129,23 @@ fun addOrUpdateNoteByEmail(email: String, noteId: String, note: String) {
 		override fun onDataChange(snapshot: DataSnapshot) {
 			if (snapshot.exists()) {
 				for (userSnapshot in snapshot.children) {
-					// Check if the user has a notes field
 					val notesReference = userSnapshot.child("notes").ref
 
 					val noteData = mapOf(
 						noteId to note
 					)
 
-					notesReference.updateChildren(noteData)
+					notesReference.updateChildren(noteData as Map<String, Any>)
 				}
 			}
 		}
 
 		override fun onCancelled(error: DatabaseError) {
-			// Handle possible errors
-			Log.w("addNoteByEmailAndContent", "Database error: $error")
+			Log.w("addOrUpdateNoteByEmail", "Database error: $error")
 		}
 	})
 }
-
-fun removeNoteByEmail(email: String, note: String) {
+fun removeNoteByEmail(email: String, noteId: String) {
 	val databaseReference = FirebaseDatabase.getInstance().getReference("users")
 
 	databaseReference.orderByChild("email").equalTo(email).addListenerForSingleValueEvent(object :
@@ -156,27 +153,16 @@ fun removeNoteByEmail(email: String, note: String) {
 		override fun onDataChange(snapshot: DataSnapshot) {
 			if (snapshot.exists()) {
 				for (userSnapshot in snapshot.children) {
-					// Check if the user has a notes field
 					if (userSnapshot.child("notes").exists()) {
-						val notesMap = userSnapshot.child("notes").value as? Map<String, String>
-
-						if (notesMap != null) {
-							// Iterate through the notes and find the one with matching content
-							val noteIdToRemove = notesMap.entries.firstOrNull { it.value == note }?.key
-
-							if (noteIdToRemove != null) {
-								// Remove the note by noteId
-								userSnapshot.child("notes").child(noteIdToRemove).ref.removeValue()
-							}
-						}
+						// Directly remove the note by noteId
+						userSnapshot.child("notes").child(noteId).ref.removeValue()
 					}
 				}
 			}
 		}
 
 		override fun onCancelled(error: DatabaseError) {
-			// Handle possible errors
-			Log.w("removeNoteByEmailAndContent", "Database error: $error")
+			Log.w("removeNoteByEmail", "Database error: $error")
 		}
 	})
 }

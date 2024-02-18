@@ -62,6 +62,7 @@ enum class ScreenStates{
 	ONLINE,
 	OFFLINE,
 	OFFLINE_ENTRY,
+	ONLINE_ENTRY
 }
 
 var isUserSignedIn = mutableStateOf(false)
@@ -164,8 +165,20 @@ fun stateMachine(context: Context, viewModel: OfflineViewModel = viewModel(), la
 				launchSignInFlow()
 			}
 		})
-		ScreenStates.ONLINE -> 	onlineScreen(context){
+		ScreenStates.ONLINE -> 	onlineScreen(context,
+			onBackPress = {
 			currentScreen = ScreenStates.MAIN
+		},
+			onEntryPress = {
+				index ->
+				currentScreen = ScreenStates.ONLINE_ENTRY
+				currentEntry = index
+			})
+		ScreenStates.ONLINE_ENTRY -> NotificationEntryOnline(
+			context = context,
+			index = currentEntry
+		) {
+			currentScreen = ScreenStates.ONLINE
 		}
 		ScreenStates.OFFLINE-> 	offlineScreen(context, viewModel,
 			onBackPress = {
