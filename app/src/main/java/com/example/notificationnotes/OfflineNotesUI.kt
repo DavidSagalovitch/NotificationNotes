@@ -42,18 +42,26 @@ data class OfflineNotesInfo(val key: String = UUID.randomUUID().toString(), val 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun offlineScreen(context: Context, viewModel: OfflineViewModel,
-                  onBackPress:()->Unit,
-                  onEntryPress:(index:Int)->Unit) {
+fun offlineScreen(context: Context, viewModel: OfflineViewModel, modifiedIndex: Int, noteTitle: String, noteDescription: String,
+                  onBackPress:(index: Int)->Unit,
+                  onEntryPress:(index: Int, noteTitle:String, noteDescription:String)->Unit) {
 	val viewState: OfflineViewModel.ViewState by viewModel.viewState.collectAsStateWithLifecycle()
 
 	var notesInfo by remember { mutableStateOf(listOf<OfflineNotesInfo>()) }
 
 	LaunchedEffect(key1 = "combineNoteInfo") {
+
 		val combinedNotes = viewState.noteTitle.zip(viewState.note) { title, content ->
 			OfflineNotesInfo(title = title, content = content)
 		}
 		notesInfo = combinedNotes
+
+		if(modifiedIndex >= 0)
+		{
+			viewModel.update(modifiedIndex, noteTitle, noteDescription)
+			notesInfo= notesInfo.toMutableList().also { it[modifiedIndex] = OfflineNotesInfo(title = noteTitle, content = noteDescription) }
+			addNotification(context, viewState.noteID.get(modifiedIndex), noteTitle, noteDescription, OFFLINE_CHANNEL_ID)
+		}
 	}
 
 	Scaffold(
@@ -63,7 +71,7 @@ fun offlineScreen(context: Context, viewModel: OfflineViewModel,
 				contentColor = MaterialTheme.colorScheme.onPrimary,
 			) {
 				ThemedButton(
-					onClick = { onBackPress() },
+					onClick = { onBackPress(-1) },
 					modifier = Modifier.padding(8.dp),
 					text = "<")
 
@@ -113,7 +121,7 @@ fun offlineScreen(context: Context, viewModel: OfflineViewModel,
 							ClickableTextBox(
 								text = note.content,
 								label = note.title,
-								onClick = { onEntryPress(notesInfo.indexOf(note))},
+								onClick = { onEntryPress(notesInfo.indexOf(note), note.title, note.content)},
 								modifier = Modifier
 									.weight(1f)
 							)
@@ -121,76 +129,6 @@ fun offlineScreen(context: Context, viewModel: OfflineViewModel,
 					}
 				}
 			}
-		}
-	}
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun NotificationEntryOffline(context:Context, viewModel: OfflineViewModel,index: Int, onBackPress: () -> Unit){
-	val viewState: OfflineViewModel.ViewState by viewModel.viewState.collectAsStateWithLifecycle()
-	var noteDescription by remember { mutableStateOf(viewState.note.get(index)) }
-	var noteTitle by remember { mutableStateOf(viewState.noteTitle.get(index)) }
-
-	Scaffold(
-		bottomBar = {
-			BottomAppBar(
-				containerColor = MaterialTheme.colorScheme.surface,
-				contentColor = MaterialTheme.colorScheme.onPrimary,
-			) {
-				ThemedButton(
-					onClick = { onBackPress() },
-					modifier = Modifier.padding(8.dp),
-					text = "<")
-
-				Spacer(modifier = Modifier.weight(1f))
-
-				ThemedButton(onClick ={viewModel.update(index, noteTitle, noteDescription)
-					addNotification(context, viewState.noteID.get(index), noteTitle, noteDescription, OFFLINE_CHANNEL_ID)
-					onBackPress()
-				},
-					modifier = Modifier.padding(8.dp),
-					text = "Update Notification")
-			}
-		},
-	) { innerPadding ->
-		Column(
-			modifier = Modifier
-				.padding(innerPadding)
-				.fillMaxWidth(),
-			horizontalAlignment = Alignment.CenterHorizontally,
-		)
-		{
-			Text(
-				text = "Notification Notes",
-				fontSize = 30.sp,
-				modifier = Modifier.padding(vertical = 16.dp),
-				textAlign = TextAlign.Center
-			)
-			ThemedTextField(
-				label = { Text("Title") },
-				value = noteTitle,
-				onValueChange = { newText ->
-					noteTitle = newText
-				},
-				modifier = Modifier
-					.padding(start = 8.dp, end = 8.dp)
-					.fillMaxWidth()
-					.heightIn(max = 56.dp),
-				singleLine = true,
-			)
-			ThemedTextField(
-				label = { Text("Content") },
-				value = noteDescription,
-				onValueChange = { newText ->
-					noteDescription = newText
-				},
-				modifier = Modifier
-					.weight(1f)
-					.padding(8.dp)
-					.fillMaxSize(),
-				singleLine = false
-			)
 		}
 	}
 }

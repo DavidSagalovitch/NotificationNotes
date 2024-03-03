@@ -22,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,25 +48,58 @@ import com.google.firebase.database.database
 import java.util.UUID
 
 
-data class OnlineNotesInfo(val key: String = UUID.randomUUID().toString(), val title:String, val content: String)
+data class OnlineNotesInfo(val key: String = UUID.randomUUID().toString(), val id: String, val title:String, val content: String)
+
+var currentUserData = " "
+var gloabalNotesInfo = listOf<OnlineNotesInfo>()
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun onlineScreen(context: Context,
-                 onBackPress:()->Unit,
-                 onEntryPress:(index:Int)->Unit) {
+fun onlineScreen(context: Context, modifiedIndex: Int, noteTitle: String, noteDescription: String,
+                 onBackPress:(index: Int)->Unit,
+                 onEntryPress:(index: Int, noteTitle:String, noteDescription:String)->Unit) {
 	var notificationTexts by remember{ mutableStateOf(listOf<String>()) }
-	var noteKeys = listOf<String>()
 
 	var notesInfo by remember { mutableStateOf(listOf<OnlineNotesInfo>()) }
-	var notificationIds by remember { mutableStateOf(listOf<String>()) }
-	var notifcationNumber = 0
 	var userText by remember { mutableStateOf("Enter User Name") }
 
-
-	val database = Firebase.database
-	lateinit var usersNotes: DatabaseReference
 	var userSet = false
+
+
+	LaunchedEffect(key1 = "combineNoteInfo") {
+		if(modifiedIndex >= 0)
+		{
+			notesInfo = gloabalNotesInfo
+			findNotesByEmail(currentUserData) { notes ->
+				if (notes != null && notes.isNotEmpty()) {
+					// Initialize an empty list to hold OnlineNotesInfo objects
+
+					// Process the notes
+					for ((noteId, noteDetails) in notes) {
+						val title = noteDetails["title"] ?: "No Title"
+						val content = noteDetails["content"] ?: "No Content"
+						val noteID = noteDetails["noteID"] ?: "No ID"
+
+						// Create an OnlineNotesInfo object and add it to the list
+						val noteInfo = OnlineNotesInfo(id = noteID, title = title, content = content)
+						notesInfo = notesInfo + noteInfo
+					}
+
+					// Now onlineNotesInfoList contains all the notes as OnlineNotesInfo objects
+					// You can use this list as needed, for example, display them or process them further
+				} else {
+					println("No notes found or user does not exist.")
+				}
+			}
+			val noteDetails = mapOf(
+				"title" to noteTitle,
+				"content" to noteDescription,
+				"noteID" to notesInfo.get(modifiedIndex).id // Assuming you're using this as a unique identifier within the user's notes collection.
+			)
+			addOrUpdateNoteByEmail(userText, notesInfo.get(modifiedIndex).id, noteDetails)
+			addNotification(context, notesInfo.get(modifiedIndex).id.toInt(), noteTitle, noteDescription, OFFLINE_CHANNEL_ID)
+		}
+	}
 
 	Scaffold(
 		bottomBar = {
@@ -74,14 +108,14 @@ fun onlineScreen(context: Context,
 				contentColor = MaterialTheme.colorScheme.onPrimary,
 			) {
 				ThemedButton(
-					onClick = { onBackPress() },
+					onClick = { onBackPress(-1) },
 					modifier = Modifier.padding(8.dp),
 					text = "<")
 
 				Spacer(modifier = Modifier.weight(1f))
 
 				ThemedButton(onClick = { signOut()
-					onBackPress()},
+					onBackPress(-1)},
 					modifier = Modifier.padding(8.dp),
 					text = "Sign Out")
 
@@ -89,14 +123,13 @@ fun onlineScreen(context: Context,
 
 				ThemedButton(onClick ={
 					if(userSet) {
-						notesInfo = notesInfo + OnlineNotesInfo(title = " ", content = " ")
-						val newNoteId = (notificationIds.get(notificationIds.lastIndex).toInt() + 2).toString()
-						notificationIds = notificationIds + newNoteId
+						val newNoteId = (notesInfo.get(notesInfo.lastIndex).id.toInt() + 2).toString()
+						notesInfo = notesInfo + OnlineNotesInfo(id = newNoteId, title = " ", content = " ")
 						val note = notesInfo.getOrNull(notesInfo.lastIndex)
 						val noteDetails = mapOf(
 							"title" to (note?.title ?: "Default Title"),
 							"content" to (note?.content ?: "Default Content"),
-							"noteID" to newNoteId // Assuming you're using this as a unique identifier within the user's notes collection.
+							"noteID" to (note?.id ?: "100") // Assuming you're using this as a unique identifier within the user's notes collection.
 						)
 						addOrUpdateNoteByEmail(userText, newNoteId, noteDetails)
 					}
@@ -151,6 +184,7 @@ fun onlineScreen(context: Context,
 				ThemedButton(onClick = { doesUserExist(userText){exists ->
 					if (exists){
 						userSet = true
+						currentUserData = userText
 						findNotesByEmail(userText) { notes ->
 							if (notes != null && notes.isNotEmpty()) {
 								// Initialize an empty list to hold OnlineNotesInfo objects
@@ -162,10 +196,10 @@ fun onlineScreen(context: Context,
 									val noteID = noteDetails["noteID"] ?: "No ID"
 
 									// Create an OnlineNotesInfo object and add it to the list
-									val noteInfo = OnlineNotesInfo(title = title, content = content)
-									notificationIds = notificationIds + noteID
+									val noteInfo = OnlineNotesInfo(id = noteID, title = title, content = content)
 									notesInfo = notesInfo + noteInfo
 								}
+								gloabalNotesInfo = notesInfo
 
 								// Now onlineNotesInfoList contains all the notes as OnlineNotesInfo objects
 								// You can use this list as needed, for example, display them or process them further
@@ -198,13 +232,15 @@ fun onlineScreen(context: Context,
 							item = note,
 							onDelete ={
 								removedBySwipe = false
+								removeNotification(context, notesInfo.get(modifiedIndex).id.toInt())
 								notesInfo = notesInfo.filterNot{it.key == note.key}
+
 
 							} ) {
 							ClickableTextBox(
 								text = note.content,
 								label = note.title,
-								onClick = { onEntryPress(notesInfo.indexOf(note))},
+								onClick = { onEntryPress(notesInfo.indexOf(note), note.title, note.content)},
 								modifier = Modifier
 									.weight(1f)
 							)
@@ -212,74 +248,6 @@ fun onlineScreen(context: Context,
 					}
 				}
 			}
-		}
-	}
-}
-
-@Composable
-fun NotificationEntryOnline(context:Context,index: Int, onBackPress: () -> Unit){
-	var noteDescription by remember { mutableStateOf(" ") }
-	var noteTitle by remember { mutableStateOf(" ") }
-
-	Scaffold(
-		bottomBar = {
-			BottomAppBar(
-				containerColor = MaterialTheme.colorScheme.surface,
-				contentColor = MaterialTheme.colorScheme.onPrimary,
-			) {
-				ThemedButton(
-					onClick = { onBackPress() },
-					modifier = Modifier.padding(8.dp),
-					text = "<")
-
-				Spacer(modifier = Modifier.weight(1f))
-
-				ThemedButton(onClick ={//viewModel.update(index, noteTitle, noteDescription)
-					//addNotification(context, viewState.noteID.get(index), noteTitle, noteDescription, OFFLINE_CHANNEL_ID)
-					onBackPress()
-				},
-					modifier = Modifier.padding(8.dp),
-					text = "Update Notification")
-			}
-		},
-	) { innerPadding ->
-		Column(
-			modifier = Modifier
-				.padding(innerPadding)
-				.fillMaxWidth(),
-			horizontalAlignment = Alignment.CenterHorizontally,
-		)
-		{
-			Text(
-				text = "Notification Notes",
-				fontSize = 30.sp,
-				modifier = Modifier.padding(vertical = 16.dp),
-				textAlign = TextAlign.Center
-			)
-			ThemedTextField(
-				label = { Text("Title") },
-				value = noteTitle,
-				onValueChange = { newText ->
-					noteTitle = newText
-				},
-				modifier = Modifier
-					.padding(start = 8.dp, end = 8.dp)
-					.fillMaxWidth()
-					.heightIn(max = 56.dp),
-				singleLine = true,
-			)
-			ThemedTextField(
-				label = { Text("Content") },
-				value = noteDescription,
-				onValueChange = { newText ->
-					noteDescription = newText
-				},
-				modifier = Modifier
-					.weight(1f)
-					.padding(8.dp)
-					.fillMaxSize(),
-				singleLine = false
-			)
 		}
 	}
 }

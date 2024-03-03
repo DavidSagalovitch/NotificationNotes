@@ -8,9 +8,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,9 +16,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -32,15 +26,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import com.example.notificationnotes.ui.theme.NotificationNotesTheme
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.ui.text.font.FontWeight
 import com.example.notificationnotes.data.checkAndSetUserData
 import com.example.notificationnotes.data.isUserSignedin
 import com.firebase.ui.auth.AuthUI
@@ -61,8 +52,7 @@ enum class ScreenStates{
 	MAIN,
 	ONLINE,
 	OFFLINE,
-	OFFLINE_ENTRY,
-	ONLINE_ENTRY
+	Note_Entry
 }
 
 var isUserSignedIn = mutableStateOf(false)
@@ -156,7 +146,10 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun stateMachine(context: Context, viewModel: OfflineViewModel = viewModel(), launchSignInFlow: () -> Unit) {
 	var currentScreen by remember { mutableStateOf<ScreenStates>(ScreenStates.MAIN) }
-	var currentEntry by remember { mutableStateOf(0) }
+	var previousScreen by remember {mutableStateOf<ScreenStates>(ScreenStates.MAIN) }
+	var currentEntry by remember { mutableStateOf(-1) }
+	var selectedNoteDescription by remember { mutableStateOf(" ") }
+	var selectedNoteTitle by remember { mutableStateOf(" ") }
 
 	when (currentScreen) {
 		ScreenStates.MAIN -> loginScreen(onStateChange = { newState ->
@@ -165,33 +158,45 @@ fun stateMachine(context: Context, viewModel: OfflineViewModel = viewModel(), la
 				launchSignInFlow()
 			}
 		})
-		ScreenStates.ONLINE -> 	onlineScreen(context,
+		ScreenStates.ONLINE -> 	onlineScreen(context, currentEntry, selectedNoteDescription, selectedNoteTitle,
 			onBackPress = {
 			currentScreen = ScreenStates.MAIN
+			currentEntry = it
 		},
 			onEntryPress = {
-				index ->
-				currentScreen = ScreenStates.ONLINE_ENTRY
+				index, noteTitle, noteDescription ->
+				currentScreen = ScreenStates.Note_Entry
+				previousScreen = ScreenStates.ONLINE
 				currentEntry = index
+				selectedNoteTitle = noteTitle
+				selectedNoteDescription = noteDescription
+
 			})
-		ScreenStates.ONLINE_ENTRY -> NotificationEntryOnline(
-			context = context,
-			index = currentEntry
-		) {
-			currentScreen = ScreenStates.ONLINE
-		}
-		ScreenStates.OFFLINE-> 	offlineScreen(context, viewModel,
+		ScreenStates.OFFLINE-> 	offlineScreen(context, viewModel, currentEntry, selectedNoteTitle, selectedNoteDescription,
 			onBackPress = {
 			currentScreen = ScreenStates.MAIN
+			currentEntry = it
 		},
 			onEntryPress = {
-				index ->
-				currentScreen = ScreenStates.OFFLINE_ENTRY
+				index, noteTitle, noteDescription ->
+				currentScreen = ScreenStates.Note_Entry
+				previousScreen = ScreenStates.OFFLINE
 				currentEntry = index
+				selectedNoteTitle = noteTitle
+				selectedNoteDescription = noteDescription
 			})
-		ScreenStates.OFFLINE_ENTRY -> NotificationEntryOffline(context, viewModel, currentEntry) {
-			currentScreen = ScreenStates.OFFLINE
-		}
+		ScreenStates.Note_Entry -> NotificationEntry(selectedNoteTitle, selectedNoteDescription,
+			onBackPress = {
+				currentScreen = previousScreen
+				currentEntry = -1
+			},
+			onSubmit = {
+				title, content ->
+				selectedNoteTitle = title
+				selectedNoteDescription = content
+				currentScreen = previousScreen
+			}
+		)
 	}
 }
 

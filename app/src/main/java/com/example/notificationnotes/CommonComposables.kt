@@ -1,5 +1,6 @@
 package com.example.notificationnotes
 
+import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
@@ -9,13 +10,16 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DismissDirection
@@ -24,6 +28,7 @@ import androidx.compose.material3.DismissValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SwipeToDismiss
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -42,6 +47,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -195,5 +201,76 @@ fun DeleteBackground(
 			contentDescription = null,
 			tint = Color.White
 		)
+	}
+}
+@Composable
+fun NotificationEntry(
+	selectedNoteTitle: String,
+	selectedNoteDescription:String,
+	onBackPress: () -> Unit,
+	onSubmit: (title:String, content:String) -> Unit
+){
+	var noteDescription by remember { mutableStateOf(selectedNoteDescription) }
+	var noteTitle by remember { mutableStateOf(selectedNoteTitle) }
+
+	Scaffold(
+		bottomBar = {
+			BottomAppBar(
+				containerColor = MaterialTheme.colorScheme.surface,
+				contentColor = MaterialTheme.colorScheme.onPrimary,
+			) {
+				ThemedButton(
+					onClick = { onBackPress() },
+					modifier = Modifier.padding(8.dp),
+					text = "<")
+
+				Spacer(modifier = Modifier.weight(1f))
+
+				ThemedButton(onClick ={
+					onSubmit(noteTitle, noteDescription)
+				},
+					modifier = Modifier.padding(8.dp),
+					text = "Update Notification")
+			}
+		},
+	) { innerPadding ->
+		Column(
+			modifier = Modifier
+				.padding(innerPadding)
+				.fillMaxWidth(),
+			horizontalAlignment = Alignment.CenterHorizontally,
+		)
+		{
+			Text(
+				text = "Notification Notes",
+				fontSize = 30.sp,
+				modifier = Modifier.padding(vertical = 16.dp),
+				textAlign = TextAlign.Center
+			)
+			ThemedTextField(
+				label = { Text("Title") },
+				value = noteTitle,
+				onValueChange = { newText ->
+					noteTitle = newText
+				},
+				modifier = Modifier
+					.padding(start = 8.dp, end = 8.dp)
+					.fillMaxWidth()
+					.heightIn(max = 56.dp),
+				singleLine = true,
+			)
+			ThemedTextField(
+				label = { Text("Content") },
+				value = noteDescription,
+				onValueChange = { newText ->
+					noteDescription = newText
+				},
+				modifier = Modifier
+					.weight(1f)
+					.padding(8.dp)
+					.fillMaxSize(),
+				singleLine = false
+			)
+		}
 	}
 }
